@@ -8,8 +8,8 @@ options:
 
 settings:
   base:
-    MARKETING_VERSION: "1.0.5"
-    CURRENT_PROJECT_VERSION: "6"
+    MARKETING_VERSION: "1.0.6"
+    CURRENT_PROJECT_VERSION: "7"
     SWIFT_VERSION: "5.0"
     ENABLE_USER_SCRIPT_SANDBOXING: NO
 
@@ -37,6 +37,8 @@ targets:
       - path: JikuangWidget
       - path: Jikuang/Core/PowerSource.swift
       - path: Jikuang/Core/DeviceInfo.swift
+      - path: Jikuang/Core/NetSpeed.swift
+      - path: Jikuang/Core/ChargeActivity.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jikuang.devicepulse.widget

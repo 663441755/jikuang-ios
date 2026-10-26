@@ -1,5 +1,6 @@
 import WidgetKit
 import SwiftUI
+import ActivityKit
 
 // MARK: - 数据
 
@@ -10,22 +11,24 @@ struct BatteryEntry: TimelineEntry {
     let state: String
     let tempText: String
     let storageText: String
+    let netDown: Double    // 下行 B/s（本次刷新时的瞬时值）
+    let netUp: Double      // 上行 B/s
 }
 
 struct BatteryProvider: TimelineProvider {
 
-    func placeholder(in context: Context) -> BatteryEntry { makeEntry() }
+    func placeholder(in context: Context) -> BatteryEntry { makeEntry(measure: false) }
     func getSnapshot(in context: Context, completion: @escaping (BatteryEntry) -> Void) {
         completion(makeEntry())
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<BatteryEntry>) -> Void) {
         // WidgetKit 最低刷新约 15 分钟，取 20 分钟一个周期；
-        // App 前台运行时会在电量变化时主动 reload，实时性由 App 补足
+        // App 前台运行时每 60 秒主动 reload 网速组件，实时性由 App 补足
         let next = Calendar.current.date(byAdding: .minute, value: 20, to: Date()) ?? Date().addingTimeInterval(1200)
         completion(Timeline(entries: [makeEntry()], policy: .after(next)))
     }
 
-    private func makeEntry() -> BatteryEntry {
+    private func makeEntry(measure: Bool = true) -> BatteryEntry {
         let snap = PowerSource.snapshot()
 
         let tempText: String
@@ -46,6 +49,9 @@ struct BatteryProvider: TimelineProvider {
             return String(format: "%.0f GB", Double(total - free) / 1e9)
         }()
 
+        // 网速：阻塞约 1.2 秒做两次采样（占位视图不采样）
+        let speed = measure ? NetSpeed.instantSpeed() : (down: 0.0, up: 0.0)
+
         let state = snap.isFull ? "已充满" : (snap.isCharging ? "充电中" : "使用中")
         return BatteryEntry(
             date: Date(),
@@ -53,7 +59,9 @@ struct BatteryProvider: TimelineProvider {
             charging: snap.isCharging,
             state: state,
             tempText: tempText,
-            storageText: storageText
+            storageText: storageText,
+            netDown: speed.down,
+            netUp: speed.up
         )
     }
 }
@@ -113,10 +121,13 @@ struct MediumWidgetView: View {
             }
             .frame(width: 62, height: 62)
 
-            VStack(alignment: .leading, spacing: 7) {
+            VStack(alignment: .leading, spacing: 6) {
                 row(symbol: "bolt.fill", label: "状态", value: entry.state, tint: tint)
                 row(symbol: "thermometer.medium", label: "热状态", value: entry.tempText, tint: .orange)
                 row(symbol: "internaldrive.fill", label: "可用存储", value: entry.storageText, tint: .cyan)
+                row(symbol: "arrow.down.arrow.up", label: "网速",
+                    value: "\(NetSpeed.format(entry.netDown))  ↑\(NetSpeed.format(entry.netUp))",
+                    tint: .blue)
             }
             Spacer(minLength: 0)
         }
@@ -141,6 +152,54 @@ struct MediumWidgetView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
+    }
+}
+
+// MARK: - 主屏 · 实时网速
+
+struct NetSpeedWidgetView: View {
+    var entry: BatteryEntry
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 4) {
+                Image(systemName: "wifi")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.blue)
+                Text("实时网速")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundColor(.secondary)
+                Spacer(minLength: 0)
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Image(systemName: "arrow.down")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.blue)
+                Text(NetSpeed.format(entry.netDown))
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.teal)
+                Text(NetSpeed.format(entry.netUp))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundColor(.secondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+
+            Text("打开 App 实时刷新")
+                .font(.system(size: 8.5))
+                .foregroundColor(.secondary.opacity(0.7))
+        }
+        .containerBackground(for: .widget) { Color(white: 0.08) }
     }
 }
 
@@ -200,6 +259,136 @@ struct ClearView: View {
     }
 }
 
+// MARK: - 灵动岛 · 充电实时活动
+
+struct ChargeLiveActivity: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: ChargeActivityAttributes.self) { context in
+            // 锁屏横幅
+            ChargeLockBanner(state: context.state)
+        } dynamicIsland: { context in
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(.yellow)
+                        Text("\(context.state.percent)%")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                    }
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(context.state.powerText)
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                        Text("充电功率")
+                            .font(.system(size: 9))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Color.white.opacity(0.15))
+                                Capsule()
+                                    .fill(Color.yellow)
+                                    .frame(width: geo.size.width * max(0.02, Double(context.state.percent) / 100))
+                            }
+                        }
+                        .frame(height: 6)
+
+                        HStack {
+                            if let eta = context.state.etaDate, eta > Date() {
+                                Image(systemName: "hourglass")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary)
+                                Text(timerInterval: Date()...eta, countsDown: true)
+                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                    .monospacedDigit()
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text("预计充满时间估算中")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Text("机况")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            } compactLeading: {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.yellow)
+            } compactTrailing: {
+                Text("\(context.state.percent)%")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundColor(.yellow)
+            } minimal: {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.yellow)
+            }
+        }
+    }
+}
+
+/// 锁屏充电横幅
+struct ChargeLockBanner: View {
+    var state: ChargeActivityAttributes.ContentState
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.yellow.opacity(0.15))
+                    .frame(width: 38, height: 38)
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundColor(.yellow)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("充电中 · \(state.percent)%")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                if let eta = state.etaDate, eta > Date() {
+                    HStack(spacing: 3) {
+                        Text("预计充满")
+                        Text(timerInterval: Date()...eta, countsDown: true)
+                            .monospacedDigit()
+                    }
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                } else {
+                    Text("预计充满时间估算中")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(state.powerText)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                Text("功率")
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(14)
+        .containerBackground(for: .widget) { Color(white: 0.08) }
+    }
+}
+
 // MARK: - 注册
 
 struct GaugeWidget: Widget {
@@ -219,8 +408,19 @@ struct MediumWidget: Widget {
             MediumWidgetView(entry: entry)
         }
         .configurationDisplayName("机况概览")
-        .description("电量、热状态与可用存储")
+        .description("电量、热状态、可用存储与网速")
         .supportedFamilies([.systemMedium])
+    }
+}
+
+struct NetSpeedWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "jikuang.netspeed", provider: BatteryProvider()) { entry in
+            NetSpeedWidgetView(entry: entry)
+        }
+        .configurationDisplayName("实时网速")
+        .description("当前下行 / 上行网速；打开 App 期间每分钟刷新")
+        .supportedFamilies([.systemSmall])
     }
 }
 
@@ -240,6 +440,8 @@ struct JikuangWidgetBundle: WidgetBundle {
     var body: some Widget {
         GaugeWidget()
         MediumWidget()
+        NetSpeedWidget()
         LockWidget()
+        ChargeLiveActivity()
     }
 }

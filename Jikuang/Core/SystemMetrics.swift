@@ -280,7 +280,16 @@ final class SystemMetrics: ObservableObject {
 
         prevNet = current
         prevTime = now
+
+        // App 前台时每 60 秒主动刷新网速小组件，
+        // 绕过 WidgetKit 15 分钟的被动刷新间隔（仅在打开 App 期间生效）
+        if Date().timeIntervalSince(lastNetWidgetReload) > 60 {
+            lastNetWidgetReload = Date()
+            WidgetCenter.shared.reloadTimelines(ofKind: "jikuang.netspeed")
+        }
     }
+
+    private var lastNetWidgetReload = Date.distantPast
 
     // MARK: - 电池
 
