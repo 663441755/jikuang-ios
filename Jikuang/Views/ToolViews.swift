@@ -137,12 +137,12 @@ final class TraceUIView: UIView {
     private var touchMap: [ObjectIdentifier: Int] = [:]
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for t in touches { appendPoint(t.location(in: self, for: t), touch: t) }
+        for t in touches { appendPoint(t.location(in: self), touch: t) }
         touchCount = max(touchCount, event?.allTouches?.count ?? 0)
         setNeedsDisplay()
     }
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for t in touches { appendPoint(t.location(in: self, for: t), touch: t) }
+        for t in touches { appendPoint(t.location(in: self), touch: t) }
         setNeedsDisplay()
     }
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -837,7 +837,7 @@ struct QRToolView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                     Button {
-                        UIPasteboard.general.setImage(image)
+                        UIPasteboard.general.image = image
                         copied = true
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { copied = false }
                     } label: {
@@ -987,7 +987,7 @@ final class DecibelModel: NSObject, ObservableObject {
             timer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
                 guard let self, let r = self.recorder else { return }
                 r.updateMeters()
-                let value = max(0, min(110, r.averagePower(forChannel: 0) + 100))
+                let value = Double(max(0, min(110, r.averagePower(forChannel: 0) + 100)))
                 self.db = value
                 self.peak = max(self.peak, value)
                 self.sum += value
@@ -1104,6 +1104,7 @@ struct PasswordToolView: View {
         if result != errSecSuccess {
             for i in 0..<bytes.count { bytes[i] = UInt8.random(in: 0...255) }
         }
-        password = String(bytes.map { pool[Int($0) % pool.count] })
+        let chars = Array(pool)
+        password = String(bytes.map { chars[Int($0) % chars.count] })
     }
 }
