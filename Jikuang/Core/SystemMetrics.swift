@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import Darwin
+import WidgetKit
 
 /// 系统指标采集：CPU / 内存 / 存储 / 网络 / 电池 / 温度估算
 /// 全部为公开 API，不使用私有方法
@@ -299,7 +300,15 @@ final class SystemMetrics: ObservableObject {
             batteryState = "使用中"
         }
         powerMinutesToFull = snap.minutesToFull
+
+        // 电量每变 1% 或充放电状态切换，主动刷新桌面小组件
+        if batteryPercent != lastPublishedPercent {
+            lastPublishedPercent = batteryPercent
+            WidgetCenter.shared.reloadAllTimelines()
+        }
     }
+
+    private var lastPublishedPercent = -1
 
     // MARK: - 温度估算（一阶热模型）
 

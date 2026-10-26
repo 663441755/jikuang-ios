@@ -242,9 +242,19 @@ final class ChargeEstimator: ObservableObject {
             return
         }
 
-        let remainWh = (1.0 - level) * batteryWh
-        let remainBatteryW = max(power * efficiency, 0.5)
-        let hours = remainWh / remainBatteryW
+        // 两段式 CC-CV 估算：80% 前近似恒流（当前功率），
+        // 80% 后进入涓流，平均速率按当前约 30% 计。
+        // 之前单段恒功率模型会严重低估（65% 时报 10 分钟，实际约 25 分钟）。
+        let batteryW = max(power * efficiency, 0.5)
+
+        var hours: Double = 0
+        if level < 0.80 {
+            hours += (0.80 - level) * batteryWh / batteryW
+        }
+        if level < 0.995 {
+            // 涓流段：80→100% 固定按当前速率的 30% 摊
+            hours += 0.20 * batteryWh / max(batteryW * 0.30, 0.15)
+        }
         let minutes = Int(hours * 60)
 
         if minutes >= 60 {

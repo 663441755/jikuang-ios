@@ -14,10 +14,29 @@ enum ToolAction {
     case detect
     case torch
     case soon
+    case haptics
+    case touch
+    case screen
+    case compass
+    case gps
+    case footprint
+    case gyro
+    case magnet
+    case pressure
+    case altitude
+    case proximity
+    case qr
+    case decibel
+    case password
+}
+
+struct ActiveTool: Identifiable {
+    let id: ToolAction
 }
 
 struct ToolsView: View {
     @State private var showDetect = false
+    @State private var active: ActiveTool?
     @State private var toast: String?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 4)
@@ -27,7 +46,7 @@ struct ToolsView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
 
-                    PageHeader(title: "工具", subtitle: "20 项")
+                    PageHeader(title: "工具", subtitle: "20 项 · 16 项可用")
 
                     GroupLabel(text: "系统")
                     grid(systemTools)
@@ -64,6 +83,30 @@ struct ToolsView: View {
         .fullScreenCover(isPresented: $showDetect) {
             DetectView()
         }
+        .sheet(item: $active) { tool in
+            toolContent(tool.id)
+        }
+    }
+
+    @ViewBuilder
+    private func toolContent(_ action: ToolAction) -> some View {
+        switch action {
+        case .haptics: HapticsToolView()
+        case .touch: TouchToolView()
+        case .screen: ScreenToolView()
+        case .compass: CompassToolView()
+        case .gps: GpsToolView()
+        case .footprint: FootprintToolView()
+        case .gyro: GyroToolView()
+        case .magnet: MagnetToolView()
+        case .pressure: PressureToolView()
+        case .altitude: AltitudeToolView()
+        case .proximity: ProximityToolView()
+        case .qr: QRToolView()
+        case .decibel: DecibelToolView()
+        case .password: PasswordToolView()
+        default: DetectView()
+        }
     }
 
     // MARK: - 网格
@@ -89,12 +132,16 @@ struct ToolsView: View {
             toggleTorch()
         case .soon:
             withAnimation(.easeOut(duration: 0.2)) {
-                toast = "\(item.name) · 下一版接入"
+                toast = "\(item.name) · PRO 版功能"
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
                 withAnimation(.easeIn(duration: 0.25)) {
                     toast = nil
                 }
+            }
+        default:
+            withAnimation(.easeOut(duration: 0.18)) {
+                active = ActiveTool(id: item.action)
             }
         }
     }
@@ -122,22 +169,22 @@ struct ToolsView: View {
     private var systemTools: [ToolItem] {
         [
             ToolItem(name: "手电筒", symbol: "flashlight.on.fill", tint: Theme.amber, action: .torch),
-            ToolItem(name: "触感反馈", symbol: "waveform.path", tint: Theme.purple),
-            ToolItem(name: "多点触控", symbol: "hand.tap", tint: Theme.blue),
-            ToolItem(name: "记录足迹", symbol: "point.topleft.down.to.point.bottomright.curvepath", tint: Theme.green)
+            ToolItem(name: "触感反馈", symbol: "waveform.path", tint: Theme.purple, action: .haptics),
+            ToolItem(name: "多点触控", symbol: "hand.tap", tint: Theme.blue, action: .touch),
+            ToolItem(name: "记录足迹", symbol: "point.topleft.down.to.point.bottomright.curvepath", tint: Theme.green, action: .footprint)
         ]
     }
 
     private var sensorTools: [ToolItem] {
         [
-            ToolItem(name: "指南针", symbol: "location.north.line", tint: Theme.pink),
-            ToolItem(name: "GPS", symbol: "location.fill", tint: Theme.blue),
-            ToolItem(name: "陀螺仪", symbol: "gyroscope", tint: Theme.purple),
-            ToolItem(name: "磁力计", symbol: "dot.radiowaves.left.and.right", tint: Theme.orange),
-            ToolItem(name: "气压计", symbol: "gauge.medium", tint: Theme.green),
-            ToolItem(name: "海拔计", symbol: "mountain.2.fill", tint: Theme.amber),
-            ToolItem(name: "距离感应", symbol: "wave.3.right", tint: Theme.blue),
-            ToolItem(name: "色温调节", symbol: "circle.lefthalf.filled", tint: Theme.t2)
+            ToolItem(name: "指南针", symbol: "location.north.line", tint: Theme.pink, action: .compass),
+            ToolItem(name: "GPS", symbol: "location.fill", tint: Theme.blue, action: .gps),
+            ToolItem(name: "陀螺仪", symbol: "gyroscope", tint: Theme.purple, action: .gyro),
+            ToolItem(name: "磁力计", symbol: "dot.radiowaves.left.and.right", tint: Theme.orange, action: .magnet),
+            ToolItem(name: "气压计", symbol: "gauge.medium", tint: Theme.green, action: .pressure),
+            ToolItem(name: "海拔计", symbol: "mountain.2.fill", tint: Theme.amber, action: .altitude),
+            ToolItem(name: "距离感应", symbol: "wave.3.right", tint: Theme.blue, action: .proximity),
+            ToolItem(name: "屏幕检测", symbol: "circle.lefthalf.filled", tint: Theme.t2, action: .screen)
         ]
     }
 
@@ -153,9 +200,9 @@ struct ToolsView: View {
     private var utilityTools: [ToolItem] {
         [
             ToolItem(name: "设备检测", symbol: "viewfinder", tint: Theme.amber, action: .detect),
-            ToolItem(name: "二维码", symbol: "qrcode", tint: Theme.t2),
-            ToolItem(name: "分贝仪", symbol: "mic.fill", tint: Theme.pink),
-            ToolItem(name: "密码生成", symbol: "key.fill", tint: Theme.green)
+            ToolItem(name: "二维码", symbol: "qrcode", tint: Theme.t2, action: .qr),
+            ToolItem(name: "分贝仪", symbol: "mic.fill", tint: Theme.pink, action: .decibel),
+            ToolItem(name: "密码生成", symbol: "key.fill", tint: Theme.green, action: .password)
         ]
     }
 }
