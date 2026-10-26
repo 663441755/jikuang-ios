@@ -1,0 +1,276 @@
+import Foundation
+import UIKit
+
+/// 充电功率估算器
+///
+/// iOS 不提供任何充电功率的公开读数，因此这里采用业界通行的推算方式：
+/// 以电量百分比变化量（ΔSoC）乘以电池额定能量（Wh），除以时间差得到电池侧功率，
+/// 再除以充电链路效率修正，得到充电器侧功率。
+/// 结果标注为「估算值」，与 App Store 同类产品做法一致。
+final class ChargeEstimator: ObservableObject {
+
+    struct Record: Identifiable, Codable {
+        var id = UUID()
+        var date: Date
+        var startLevel: Double
+        var endLevel: Double
+        var peakPower: Double
+        var wattHours: Double
+        var duration: TimeInterval
+    }
+
+    // MARK: - 输出
+
+    @Published var power: Double = 0          // 充电器侧功率 W
+    @Published var batteryPower: Double = 0   // 电池侧功率 W
+    @Published var level: Double = 0
+    @Published var isCharging = false
+    @Published var peakPower: Double = 0
+    @Published var sessionWh: Double = 0
+    @Published var sessionStart: Date?
+    @Published var elapsed: TimeInterval = 0
+    @Published var fullEstimate: String = "--"
+    @Published var samples: [Double] = []     // 本次会话逐段功率
+    @Published var records: [Record] = []
+    @Published var measuring = false
+    @Published var historyPower: [Double] = Array(repeating: 0, count: 40)
+
+    // MARK: - 参数
+
+    /// 电池额定能量（Wh）。按机型族分档，用于换算功率。
+    private var batteryWh: Double {
+        let model = SystemMetrics.machineIdentifier()
+        if model.contains("17,") || model.contains("18,") { return 19.5 }
+        if model.contains("15,") || model.contains("16,") { return 17.1 }
+        if model.contains("14,") || model.contains("13,") { return 14.2 }
+        return 16.0
+    }
+
+    /// 充电链路效率（充电器 → 电池）
+    private let efficiency: Double = 0.87
+
+    // MARK: - 内部状态
+
+    private struct LevelSample {
+        let level: Double
+        let at: Date
+    }
+
+    private var levelSamples: [LevelSample] = []
+    private var lastLevel: Double = -1
+    private var timer: Timer?
+    private var lastChargingState = false
+    private var pendingIntervals: [Double] = []   // 最近的功率区间值
+
+    private let defaultsKey = "jikuang.charge.records"
+
+    init() {
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        loadRecords()
+        level = Double(max(UIDevice.current.batteryLevel, 0))
+        lastLevel = level
+        isCharging = UIDevice.current.batteryState == .charging || UIDevice.current.batteryState == .full
+        lastChargingState = isCharging
+
+        if isCharging { startSession() }
+
+        let t = Timer(timeInterval: 2.0, repeats: true) { [weak self] _ in
+            self?.tick()
+        }
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
+    }
+
+    deinit {
+        timer?.invalidate()
+    }
+
+    // MARK: - 采样
+
+    private func tick() {
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        let currentLevel = Double(max(UIDevice.current.batteryLevel, 0))
+        let currentCharging = UIDevice.current.batteryState == .charging || UIDevice.current.batteryState == .full
+
+        level = currentLevel
+
+        // 充放电状态切换
+        if currentCharging != lastChargingState {
+            if currentCharging {
+                startSession()
+            } else {
+                endSession()
+            }
+            lastChargingState = currentCharging
+            isCharging = currentCharging
+        }
+
+        guard isCharging else {
+            if power > 0 {
+                // 拔出后动量衰减
+                power = max(power * 0.7 - 0.6, 0)
+                if power < 0.2 { power = 0 }
+            }
+            batteryPower = 0
+            measuring = false
+            return
+        }
+
+        if let start = sessionStart {
+            elapsed = Date().timeIntervalSince(start)
+        }
+
+        // 电量为 0 或 -1 时无法测量
+        guard currentLevel > 0 else {
+            measuring = true
+            return
+        }
+
+        // 电量跳变才记录样本（1% 为系统最小分辨率）
+        if abs(currentLevel - lastLevel) >= 0.009 {
+            levelSamples.append(LevelSample(level: currentLevel, at: Date()))
+            lastLevel = currentLevel
+            recomputePower()
+        } else if levelSamples.isEmpty {
+            levelSamples.append(LevelSample(level: currentLevel, at: Date()))
+            measuring = true
+        }
+
+        // 样本超过 12 个后修剪
+        if levelSamples.count > 12 {
+            levelSamples.removeFirst(levelSamples.count - 12)
+        }
+
+        updateFullEstimate()
+    }
+
+    private func recomputePower() {
+        guard levelSamples.count >= 2 else {
+            measuring = true
+            return
+        }
+
+        // 用最近 3 个电量变化区间求平均功率，抑制抖动
+        var energies: [Double] = []
+        var durations: [Double] = []
+
+        let tail = Array(levelSamples.suffix(4))
+        for i in 1..<tail.count {
+            let dLevel = tail[i].level - tail[i - 1].level
+            let dt = tail[i].at.timeIntervalSince(tail[i - 1].at)
+            guard dLevel > 0, dt > 1 else { continue }
+            energies.append(dLevel * batteryWh)
+            durations.append(dt / 3600.0)
+        }
+
+        guard !energies.isEmpty else {
+            measuring = true
+            return
+        }
+
+        let wh = energies.reduce(0, +)
+        let hours = durations.reduce(0, +)
+        guard hours > 0 else { return }
+
+        let batteryW = wh / hours
+        let chargerW = batteryW / efficiency
+
+        // 合理区间约束：有线最高 45W，无线最低 2W
+        let clamped = min(max(chargerW, 0.5), 45)
+
+        pendingIntervals.append(clamped)
+        if pendingIntervals.count > 5 { pendingIntervals.removeFirst() }
+
+        let avg = pendingIntervals.reduce(0, +) / Double(pendingIntervals.count)
+
+        batteryPower = avg * efficiency
+        power = power == 0 ? avg : power * 0.55 + avg * 0.45
+        measuring = false
+
+        if power > peakPower { peakPower = power }
+
+        samples.append((power * 10).rounded() / 10)
+        if samples.count > 30 { samples.removeFirst() }
+
+        // 每 1% 累加一次充入能量
+        sessionWh += (energies.last ?? 0)
+
+        var h = historyPower
+        h.removeFirst()
+        h.append(power)
+        historyPower = h
+    }
+
+    private func updateFullEstimate() {
+        guard power > 0.5, level > 0.02, level < 1 else {
+            fullEstimate = level >= 0.99 ? "已充满" : "--"
+            return
+        }
+        let remainWh = (1.0 - level) * batteryWh
+        let remainBatteryW = max(power * efficiency, 0.5)
+        let hours = remainWh / remainBatteryW
+        let minutes = Int(hours * 60)
+
+        if minutes >= 60 {
+            fullEstimate = "\(minutes / 60) 小时 \(minutes % 60) 分"
+        } else {
+            fullEstimate = "\(max(minutes, 1)) 分钟"
+        }
+    }
+
+    // MARK: - 会话
+
+    private func startSession() {
+        isCharging = true
+        sessionStart = Date()
+        peakPower = 0
+        sessionWh = 0
+        samples = []
+        pendingIntervals = []
+        levelSamples = [LevelSample(level: level, at: Date())]
+        lastLevel = level
+        startLevelForSession = level
+        measuring = true
+    }
+
+    private var startLevelForSession: Double = 0
+
+    private func endSession() {
+        isCharging = false
+        guard let start = sessionStart, level > startLevelForSession else {
+            sessionStart = nil
+            return
+        }
+        let record = Record(
+            date: start,
+            startLevel: startLevelForSession,
+            endLevel: level,
+            peakPower: peakPower,
+            wattHours: sessionWh,
+            duration: Date().timeIntervalSince(start)
+        )
+        records.insert(record, at: 0)
+        if records.count > 30 { records.removeLast() }
+        saveRecords()
+        sessionStart = nil
+    }
+
+    // MARK: - 持久化
+
+    private func loadRecords() {
+        guard let data = UserDefaults.standard.data(forKey: defaultsKey),
+              let decoded = try? JSONDecoder().decode([Record].self, from: data) else { return }
+        records = decoded
+    }
+
+    private func saveRecords() {
+        if let data = try? JSONEncoder().encode(records) {
+            UserDefaults.standard.set(data, forKey: defaultsKey)
+        }
+    }
+
+    // MARK: - 额定功率档位
+
+    /// iPhone 常见充电档位，用于柱状图刻度
+    static let powerTiers: [Double] = [5, 7.5, 12, 15, 18, 20, 25, 27, 30, 35, 45]
+}
