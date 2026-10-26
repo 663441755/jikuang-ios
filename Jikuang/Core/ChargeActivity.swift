@@ -94,6 +94,28 @@ struct ChargeActivityAttributes: ActivityAttributes {
     var deviceName: String
 }
 
+// MARK: - 兼容旧版本遗留的活动数据
+
+extension ChargeActivityAttributes.ContentState {
+
+    /// 手写解码：旧版本（1.0.6 及以前）存活的实时活动没有 metric / 四项文本字段，
+    /// 用合成解码会因缺 key 抛错，导致扩展或 App 读取活动内容时崩溃。
+    /// 这里全部按 decodeIfPresent + 兜底值处理，任何历史数据都能安全降级。
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        percent = try c.decodeIfPresent(Int.self, forKey: .percent) ?? 0
+        isCharging = try c.decodeIfPresent(Bool.self, forKey: .isCharging) ?? false
+        powerText = try c.decodeIfPresent(String.self, forKey: .powerText) ?? "--"
+        etaDate = try c.decodeIfPresent(Date.self, forKey: .etaDate)
+        metric = (try? c.decode(MetricKind.self, forKey: .metric)) ?? .net
+        netText = try c.decodeIfPresent(String.self, forKey: .netText) ?? "--"
+        netUpText = try c.decodeIfPresent(String.self, forKey: .netUpText) ?? "--"
+        cpuText = try c.decodeIfPresent(String.self, forKey: .cpuText) ?? "--"
+        memText = try c.decodeIfPresent(String.self, forKey: .memText) ?? "--"
+        thermalText = try c.decodeIfPresent(String.self, forKey: .thermalText) ?? "--"
+    }
+}
+
 // MARK: - 切换指标按钮（灵动岛展开后点击）
 
 /// LiveActivityIntent 在 App 进程内执行，可直接更新实时活动内容，
@@ -136,6 +158,7 @@ final class ChargeActivityManager {
     private var activity: Activity<ChargeActivityAttributes>?
     private var lastPercent = -1
     private var lastUpdate = Date.distantPast
+    private var didCleanupStale = false
 
     private var enabled: Bool { ActivityAuthorizationInfo().areActivitiesEnabled }
 
@@ -181,6 +204,11 @@ final class ChargeActivityManager {
             thermalText: String(format: "%.1f℃", thermal)
         )
 
+        // App 重启 / 升级后引用丢失：接管进程内已有的活动，避免重复创建两个灵动岛
+        if activity == nil {
+            activity = Activity<ChargeActivityAttributes>.activities.first
+        }
+
         if let activity {
             // 网速要更跟手：5 秒一刷；其余指标 20 秒一刷；电量变化立即刷
             let interval: TimeInterval = metric == .net ? 5 : 20
@@ -210,8 +238,18 @@ final class ChargeActivityManager {
 
     /// 结束实时活动（保留 60 秒展示最终状态后自动移除）
     func end() {
-        guard let activity else { return }
-        self.activity = nil
+        // 优先结束自己持有的活动；否则清理一次进程内残留活动
+        // （升级前遗留 / App 重启后引用丢失的情况），只清一次避免每秒重复调用
+        var target: Activity<ChargeActivityAttributes>?
+        if let activity {
+            target = activity
+        } else if !didCleanupStale {
+            didCleanupStale = true
+            target = Activity<ChargeActivityAttributes>.activities.first
+        }
+
+        guard let target else { return }
+        activity = nil
         lastPercent = -1
 
         let snap = PowerSource.snapshot()
@@ -223,7 +261,7 @@ final class ChargeActivityManager {
             metric: currentMetric
         )
         Task {
-            await activity.end(
+            await target.end(
                 ActivityContent(state: state, staleDate: nil),
                 dismissalPolicy: .after(Date().addingTimeInterval(60))
             )

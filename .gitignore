@@ -18,3 +18,5 @@ Thumbs.db
 # 本地构建辅助
 .icon/
 dist/
+
+.mentor/
