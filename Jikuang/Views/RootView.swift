@@ -49,46 +49,35 @@ struct TabBar: View {
         HStack(spacing: 0) {
             ForEach(AppTab.allCases, id: \.self) { item in
                 Button {
-                    withAnimation(.easeOut(duration: 0.15)) {
+                    withAnimation(.easeOut(duration: 0.18)) {
                         selection = item
                     }
                 } label: {
-                    VStack(spacing: 5) {
+                    VStack(spacing: 4) {
                         Image(systemName: item.symbol)
-                            .font(.system(size: 17, weight: selection == item ? .semibold : .regular))
-                            .frame(height: 19)
+                            .font(.system(size: 18, weight: selection == item ? .semibold : .regular))
+                            .frame(height: 22)
                         Text(item.rawValue)
-                            .font(Px.cn(8.5, selection == item ? .bold : .medium))
-                            .tracking(0.6)
+                            .font(.system(size: 8.5, weight: .medium))
                     }
                     .foregroundColor(selection == item ? Theme.amber : Theme.t3)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .background {
-                        if selection == item {
-                            Rectangle()
-                                .fill(Theme.amber.opacity(0.09))
-                                .overlay(alignment: .top) {
-                                    Rectangle()
-                                        .fill(Theme.amber)
-                                        .frame(height: 2)
-                                        .shadow(color: Theme.amber, radius: 5)
-                                }
-                        }
-                    }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
+        .padding(.top, 9)
         .padding(.bottom, 2)
         .background {
-            Color(hex: 0x06080D)
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .overlay(Color.black.opacity(0.25))
                 .ignoresSafeArea(edges: .bottom)
         }
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(Theme.amber.opacity(0.28))
+                .fill(Color.white.opacity(0.07))
                 .frame(height: 1)
         }
     }

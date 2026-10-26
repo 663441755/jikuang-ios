@@ -105,9 +105,9 @@ struct TouchToolView: View {
         ToolPage(title: "多点触控") {
             TouchTraceView()
                 .frame(height: 420)
-                .clipShape(Rectangle())
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .overlay(
-                    Rectangle()
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .stroke(Theme.line, lineWidth: 1)
                 )
             Text("按下并滑动，圈点为触点轨迹，可测触控死区")
@@ -270,7 +270,7 @@ struct CompassToolView: View {
                     Circle().stroke(Theme.line, lineWidth: 1).frame(width: 200, height: 200)
                     Circle().stroke(Theme.line.opacity(0.5), lineWidth: 1).frame(width: 150, height: 150)
                     ForEach(0..<8, id: \.self) { i in
-                        Rectangle()
+                        RoundedRectangle(cornerRadius: 1)
                             .fill(Theme.t3.opacity(0.6))
                             .frame(width: 1.5, height: i % 2 == 0 ? 12 : 7)
                             .offset(y: -92)
@@ -281,7 +281,7 @@ struct CompassToolView: View {
                         .foregroundColor(Theme.pink)
                         .rotationEffect(.degrees(-service.heading))
                     Text("\(Int(service.heading < 0 ? service.heading + 360 : service.heading))°")
-                        .font(Px.nb(30))
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
                         .foregroundColor(Theme.t1)
                         .monospacedDigit()
                         .offset(y: 100)
@@ -307,7 +307,7 @@ struct CompassToolView: View {
         HStack {
             Text(label).font(.system(size: 11)).foregroundColor(Theme.t3)
             Spacer()
-            Text(value).font(Px.n(13)).foregroundColor(Theme.t1).monospacedDigit()
+            Text(value).font(.system(size: 13, weight: .semibold, design: .rounded)).foregroundColor(Theme.t1).monospacedDigit()
         }
         .padding(13)
         .card(radius: 14)
@@ -351,7 +351,7 @@ struct GpsToolView: View {
         HStack {
             Text(label).font(.system(size: 11.5)).foregroundColor(Theme.t3)
             Spacer()
-            Text(value).font(Px.n(13)).foregroundColor(Theme.t1).monospacedDigit()
+            Text(value).font(.system(size: 13, weight: .semibold, design: .rounded)).foregroundColor(Theme.t1).monospacedDigit()
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
@@ -387,7 +387,7 @@ struct FootprintToolView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background((recording ? Theme.pink : Theme.green).opacity(0.12))
-                        .clipShape(Rectangle())
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.plain)
 
@@ -409,7 +409,7 @@ struct FootprintToolView: View {
     private func miniCard(label: String, value: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(label).font(.system(size: 9.5)).foregroundColor(Theme.t3)
-            Text(value).font(Px.nb(17)).foregroundColor(tint).monospacedDigit()
+            Text(value).font(.system(size: 17, weight: .bold, design: .rounded)).foregroundColor(tint).monospacedDigit()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(13)
@@ -497,7 +497,7 @@ struct GyroToolView: View {
                         Text(row.0).font(.system(size: 11.5)).foregroundColor(Theme.t3)
                         Spacer()
                         Text(String(format: "%+.3f %@", row.1, row.2))
-                            .font(Px.n(13))
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
                             .foregroundColor(Theme.t1)
                             .monospacedDigit()
                     }
@@ -515,8 +515,8 @@ struct GyroToolView: View {
                 ForEach(Array(bars.enumerated()), id: \.offset) { _, v in
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
-                            Rectangle().fill(Color.white.opacity(0.07))
-                            Rectangle()
+                            RoundedRectangle(cornerRadius: 3).fill(Color.white.opacity(0.07))
+                            RoundedRectangle(cornerRadius: 3)
                                 .fill(Theme.purple)
                                 .frame(width: min(1, abs(v) / 2.0) * geo.size.width)
                         }
@@ -570,7 +570,7 @@ struct PressureToolView: View {
                 GroupLabel(text: "实时气压")
                 VStack(spacing: 4) {
                     Text(String(format: "%.2f", motion.pressure))
-                        .font(Px.nb(42))
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
                         .foregroundColor(Theme.green)
                         .monospacedDigit()
                     Text("kPa（≈ \(String(format: "%.0f", motion.pressure * 10)) hPa）")
@@ -603,7 +603,7 @@ struct AltitudeToolView: View {
                 GroupLabel(text: "相对海拔变化")
                 VStack(spacing: 4) {
                     Text(String(format: "%+.1f m", motion.relativeAltitude - (baseAltitude ?? motion.relativeAltitude)))
-                        .font(Px.nb(42))
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
                         .foregroundColor(Theme.amber)
                         .monospacedDigit()
                     Text("气压推算 · 相对启动点")
@@ -623,7 +623,7 @@ struct AltitudeToolView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 11)
                             .background(Theme.blue.opacity(0.12))
-                            .clipShape(Rectangle())
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
@@ -653,7 +653,7 @@ enum GyroHelper {
                         Text(row.0).font(.system(size: 11.5)).foregroundColor(Theme.t3)
                         Spacer()
                         Text(String(format: "%+.2f %@", row.1, row.2))
-                            .font(Px.n(13))
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
                             .foregroundColor(Theme.t1)
                             .monospacedDigit()
                     }
@@ -671,8 +671,8 @@ enum GyroHelper {
                 ForEach(Array(bars.enumerated()), id: \.offset) { _, v in
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
-                            Rectangle().fill(Color.white.opacity(0.07))
-                            Rectangle()
+                            RoundedRectangle(cornerRadius: 3).fill(Color.white.opacity(0.07))
+                            RoundedRectangle(cornerRadius: 3)
                                 .fill(tint)
                                 .frame(width: min(1, abs(CGFloat(v))) * geo.size.width)
                         }
@@ -776,7 +776,7 @@ struct ScreenToolView: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
                             .background(Color.black.opacity(0.45))
-                            .clipShape(Rectangle())
+                            .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
                     .padding(8)
@@ -808,8 +808,8 @@ struct QRToolView: View {
                     .foregroundColor(Theme.t1)
                     .padding(12)
                     .background(Theme.surf)
-                    .clipShape(Rectangle())
-                    .overlay(Rectangle().stroke(Theme.line, lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Theme.line, lineWidth: 1))
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
 
@@ -822,7 +822,7 @@ struct QRToolView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 11)
                         .background(Theme.amber.opacity(0.12))
-                        .clipShape(Rectangle())
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.plain)
 
@@ -834,7 +834,7 @@ struct QRToolView: View {
                         .scaledToFit()
                         .frame(width: 200, height: 200)
                         .background(Color.white)
-                        .clipShape(Rectangle())
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                     Button {
                         UIPasteboard.general.image = image
@@ -847,7 +847,7 @@ struct QRToolView: View {
                             .padding(.horizontal, 18)
                             .padding(.vertical, 9)
                             .background(Theme.green.opacity(0.12))
-                            .clipShape(Rectangle())
+                            .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
                 }
@@ -884,7 +884,7 @@ struct DecibelToolView: View {
                 GroupLabel(text: "实时声级")
                 VStack(spacing: 4) {
                     Text(model.error ?? String(format: "%.0f", model.db))
-                        .font(Px.nb(46))
+                        .font(.system(size: 46, weight: .bold, design: .rounded))
                         .foregroundColor(color)
                         .monospacedDigit()
                     Text(model.error != nil ? "无法启动麦克风" : "dB · 近似声级（未校准）")
@@ -945,7 +945,7 @@ struct DecibelToolView: View {
     private func miniCard(label: String, value: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(label).font(.system(size: 9.5)).foregroundColor(Theme.t3)
-            Text(value).font(Px.nb(16)).foregroundColor(tint).monospacedDigit()
+            Text(value).font(.system(size: 16, weight: .bold, design: .rounded)).foregroundColor(tint).monospacedDigit()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
@@ -1087,7 +1087,7 @@ struct PasswordToolView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 11)
                 .background(tint.opacity(0.12))
-                .clipShape(Rectangle())
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
     }

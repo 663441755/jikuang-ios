@@ -1,6 +1,5 @@
 import Foundation
 import UIKit
-import Darwin
 
 /// 充电功率估算器
 ///
@@ -41,20 +40,6 @@ final class ChargeEstimator: ObservableObject {
     @Published var measuring = false
     @Published var historyPower: [Double] = Array(repeating: 0, count: 40)
     @Published var sourceLabel: String = "-"   // 电量数据源，用于排错
-
-    // MARK: - 心电图数据（充电页主视图）
-
-    /// 滚动波形缓冲：约 4.3 秒 @ 16Hz，负值向下、正值向上
-    /// （窗口取 4 秒级：一屏 4~6 个心跳，与真实监护仪观感一致）
-    @Published var ecg: [Double] = []
-    /// 由功率映射出的显示节律（视觉用，非真实心率）
-    @Published var bpm: Int = 58
-    /// 预计充满的分钟数；nil = 无数据 / 已充满
-    @Published var fullMinutes: Int? = nil
-    private var ecgPhase: Double = 0
-    private let ecgCapacity = 72
-    private let ecgStep: Double = 0.06
-    private var ecgTimer: Timer?
 
     // MARK: - 参数
 
@@ -107,85 +92,10 @@ final class ChargeEstimator: ObservableObject {
         }
         RunLoop.main.add(t, forMode: .common)
         timer = t
-
-        // 心电图需要比 1Hz 更高的采样率，单独一条 16Hz 定时器
-        ecg = Array(repeating: 0, count: ecgCapacity)
-        let et = Timer(timeInterval: ecgStep, repeats: true) { [weak self] _ in
-            self?.ecgTick()
-        }
-        RunLoop.main.add(et, forMode: .common)
-        ecgTimer = et
     }
 
     deinit {
         timer?.invalidate()
-        ecgTimer?.invalidate()
-    }
-
-    // MARK: - 心电图
-
-    /// 推进一个采样点。
-    /// 波形本身是按心电复合波（P-QRS-T）合成的可视化，
-    /// 但**振幅与节律由真实功率驱动**——功率越高波峰越高、跳动越快。
-    /// iOS 无法读取真实电生理数据，这里只借用心电图的视觉语言表达功率。
-    private func ecgTick() {
-        let ratio = min(max(power / 45.0, 0), 1)
-        let amp = isCharging ? (0.30 + 0.70 * ratio) : 0.09
-        // 节律控制在 66~96：配合 4.3 秒窗口，一屏 4~6 个心跳
-        let targetBPM = isCharging ? 66.0 + 30.0 * ratio : 58.0
-        bpm = Int(targetBPM.rounded())
-
-        // 相位按当前节律推进；period 越短跳得越快
-        let period = 60.0 / max(targetBPM, 30)
-        ecgPhase += ecgStep / period
-        if ecgPhase >= 1 { ecgPhase -= 1 }
-
-        var v = ecgWave(ecgPhase) * amp
-        // 基线噪声：非充电时抖动更明显，像导联未接
-        v += Double.random(in: -1...1) * (isCharging ? 0.006 : 0.020)
-
-        var arr = ecg
-        arr.append(v)
-        if arr.count > ecgCapacity {
-            arr.removeFirst(arr.count - ecgCapacity)
-        }
-        ecg = arr
-    }
-
-    /// 单周期心电复合波，p ∈ [0,1)
-    private func ecgWave(_ p: Double) -> Double {
-        let pr = (p - 0.150) / 0.030   // P 波
-        let qr = (p - 0.252) / 0.009   // Q
-        let rr = (p - 0.272) / 0.011   // R 主峰
-        let sr = (p - 0.294) / 0.013   // S
-        let tr = (p - 0.430) / 0.050   // T 波
-
-        var v = 0.0
-        v += 0.13 * exp(-pr * pr)
-        v -= 0.10 * exp(-qr * qr)
-        v += 1.00 * exp(-rr * rr)
-        v -= 0.26 * exp(-sr * sr)
-        v += 0.26 * exp(-tr * tr)
-        return v
-    }
-
-    // MARK: - 电压 / 电流推断
-
-    /// 充电电压档位推断（PD 协商电压在充电芯片内，iOS 不对外提供）
-    var voltageEstimate: Double {
-        guard isCharging, power >= 0.5 else { return 0 }
-        switch power {
-        case ..<12:  return 5.0
-        case ..<18:  return 9.0
-        case ..<28:  return 15.0
-        default:     return 20.0
-        }
-    }
-
-    /// 电流 = 功率 ÷ 推断电压
-    var currentEstimate: Double {
-        guard voltageEstimate > 0 else { return 0 }
-        return power / voltageEstimate
     }
 
     // MARK: - 采样
@@ -310,14 +220,12 @@ final class ChargeEstimator: ObservableObject {
         guard isCharging else {
             fullEstimate = level >= 0.99 ? "已充满" : "--"
             fullFromSystem = false
-            fullMinutes = nil
             return
         }
 
         if level >= 0.995 {
             fullEstimate = "已充满"
             fullFromSystem = systemMinutesToFull != nil
-            fullMinutes = 0
             return
         }
 
@@ -325,14 +233,12 @@ final class ChargeEstimator: ObservableObject {
         if let minutes = systemMinutesToFull, minutes > 0 {
             fullEstimate = Fmt.duration(Double(minutes) * 60)
             fullFromSystem = true
-            fullMinutes = minutes
             return
         }
 
         fullFromSystem = false
         guard power > 0.5, level > 0.02 else {
             fullEstimate = "--"
-            fullMinutes = nil
             return
         }
 
@@ -356,7 +262,6 @@ final class ChargeEstimator: ObservableObject {
         } else {
             fullEstimate = "\(max(minutes, 1)) 分钟"
         }
-        fullMinutes = max(minutes, 1)
     }
 
     // MARK: - 充电协议推断
@@ -394,9 +299,6 @@ final class ChargeEstimator: ObservableObject {
         startLevelForSession = level
         lastTick = Date()
         measuring = true
-        // 重置心电波形，新会话从头画起
-        ecgPhase = 0
-        ecg = Array(repeating: 0, count: ecgCapacity)
     }
 
     private func endSession() {

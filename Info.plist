@@ -38,11 +38,6 @@
 	<string>Dark</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
-	<key>UIAppFonts</key>
-	<array>
-		<string>Silkscreen-Regular.ttf</string>
-		<string>Silkscreen-Bold.ttf</string>
-	</array>
 	<key>NSMotionUsageDescription</key>
 	<string>用于陀螺仪、加速度计、磁力计与气压计的硬件检测</string>
 	<key>NSMicrophoneUsageDescription</key>

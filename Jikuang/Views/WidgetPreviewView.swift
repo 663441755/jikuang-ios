@@ -51,9 +51,9 @@ struct WidgetPreviewView: View {
                 )
             }
         )
-        .clipShape(Rectangle())
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
-            Rectangle()
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(Color.white.opacity(0.1), lineWidth: 1)
         )
     }
@@ -70,7 +70,7 @@ struct WidgetPreviewView: View {
             }
             Spacer(minLength: 0)
             Text("\(Int(metrics.cpuUsage * 100))")
-                .font(Px.nb(26))
+                .font(.system(size: 26, weight: .bold, design: .rounded))
                 .foregroundColor(.white)
                 .monospacedDigit()
             Text("%")
@@ -82,9 +82,9 @@ struct WidgetPreviewView: View {
         .padding(10)
         .frame(width: 118, height: 118, alignment: .leading)
         .background(.ultraThinMaterial)
-        .clipShape(Rectangle())
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
-            Rectangle()
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(Color.white.opacity(0.14), lineWidth: 1)
         )
     }
@@ -97,7 +97,7 @@ struct WidgetPreviewView: View {
                     .foregroundColor(.white.opacity(0.6))
                 HStack(alignment: .bottom, spacing: 1) {
                     Text(String(format: "%.1f", metrics.estimatedTemp))
-                        .font(Px.nb(20))
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .monospacedDigit()
                     Text("℃")
@@ -112,7 +112,7 @@ struct WidgetPreviewView: View {
                     .font(.system(size: 8, weight: .medium))
                     .foregroundColor(.white.opacity(0.6))
                 Text(Fmt.bytes(metrics.memUsed))
-                    .font(Px.n(12))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundColor(.white)
                     .monospacedDigit()
             }
@@ -120,9 +120,9 @@ struct WidgetPreviewView: View {
         .padding(11)
         .frame(height: 54)
         .background(.ultraThinMaterial)
-        .clipShape(Rectangle())
+        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
         .overlay(
-            Rectangle()
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
                 .stroke(Color.white.opacity(0.14), lineWidth: 1)
         )
     }
@@ -133,7 +133,7 @@ struct WidgetPreviewView: View {
                 .font(.system(size: 7.5))
                 .foregroundColor(.white.opacity(0.55))
             Text(value)
-                .font(Px.nb(10))
+                .font(.system(size: 10, weight: .bold, design: .rounded))
                 .foregroundColor(tint)
                 .monospacedDigit()
         }
@@ -141,7 +141,7 @@ struct WidgetPreviewView: View {
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.ultraThinMaterial)
-        .clipShape(Rectangle())
+        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
     }
 
     private var largeWidget: some View {
@@ -155,7 +155,7 @@ struct WidgetPreviewView: View {
                 }
                 Spacer()
                 Text(Fmt.duration(metrics.uptime))
-                    .font(Px.n(8))
+                    .font(.system(size: 8, weight: .medium, design: .rounded))
                     .foregroundColor(.white.opacity(0.55))
                     .monospacedDigit()
             }
@@ -175,9 +175,9 @@ struct WidgetPreviewView: View {
         }
         .padding(12)
         .background(.ultraThinMaterial)
-        .clipShape(Rectangle())
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
-            Rectangle()
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(Color.white.opacity(0.14), lineWidth: 1)
         )
     }
@@ -189,7 +189,7 @@ struct WidgetPreviewView: View {
                 .foregroundColor(.white.opacity(0.5))
             HStack(alignment: .firstTextBaseline, spacing: 1) {
                 Text(value)
-                    .font(Px.nb(14))
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundColor(tint)
                     .monospacedDigit()
                     .lineLimit(1)

@@ -5,17 +5,17 @@ struct ChargeView: View {
     @EnvironmentObject var metrics: SystemMetrics
 
     private var tint: Color {
-        charge.isCharging ? Theme.ecgLine : Theme.t3
+        charge.isCharging ? Theme.amber : Theme.t2
     }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 10) {
 
-                PageHeader(title: "充电", subtitle: "ECG MODE")
+                PageHeader(title: "充电", subtitle: "功率为估算值")
 
-                ecgCard
-                statsCard
+                mainCard
+                statsRow
                 sessionChart
                 recordList
                 disclaimer
@@ -25,204 +25,139 @@ struct ChargeView: View {
         }
     }
 
-    // MARK: - 心电图主卡
+    // MARK: - 主卡
 
-    private var ecgCard: some View {
-        VStack(spacing: 12) {
-
-            // 通道状态行
-            HStack(spacing: 8) {
-                // 闪烁的活动指示块
-                Rectangle()
-                    .fill(tint)
-                    .frame(width: 6, height: 6)
-                    .shadow(color: tint, radius: 5)
-                    .opacity(charge.isCharging ? 1 : 0.4)
-
-                Text(charge.isCharging ? (charge.measuring ? "MEASURING" : "CHARGING") : "STANDBY")
-                    .font(Px.nb(10))
-                    .foregroundColor(tint)
-
-                Spacer()
-
-                Text("CH-1")
-                    .font(Px.n(8))
-                    .foregroundColor(Theme.t3)
-
-                Text(charge.sourceLabel)
-                    .font(Px.n(8))
-                    .foregroundColor(Theme.amber.opacity(0.8))
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 1.5)
-                    .overlay(Rectangle().stroke(Theme.amber.opacity(0.35), lineWidth: 0.8))
-            }
-
-            // 功率读数 + 节律
-            HStack(alignment: .lastTextBaseline) {
-                HStack(alignment: .lastTextBaseline, spacing: 3) {
-                    Text(String(format: "%.1f", charge.power))
-                        .font(Px.nb(50))
-                        .foregroundColor(Theme.t1)
-                        .contentTransition(.numericText())
-                        .shadow(color: Theme.amber.opacity(0.45), radius: 10)
-                    Text("W")
-                        .font(Px.nb(14))
-                        .foregroundColor(Theme.amber)
-                        .padding(.bottom, 6)
-                }
-
-                Spacer()
-
-                VStack(alignment: .trailing, spacing: 2) {
-                    HStack(alignment: .lastTextBaseline, spacing: 2) {
-                        Text("\(charge.bpm)")
-                            .font(Px.nb(19))
-                            .foregroundColor(Theme.ecgLine)
-                            .contentTransition(.numericText())
-                        Text("BPM")
-                            .font(Px.n(7.5))
-                            .foregroundColor(Theme.t3)
+    private var mainCard: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 18) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(tint)
+                            .frame(width: 5, height: 5)
+                        Text(charge.isCharging ? (charge.measuring ? "测量中" : "充电中") : "未充电")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(tint)
                     }
-                    Text(charge.protocolLabel)
-                        .font(Px.cn(8.5, .medium))
-                        .foregroundColor(Theme.t3)
-                        .lineLimit(1)
-                }
-            }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(tint.opacity(0.12))
+                    .clipShape(Capsule())
 
-            // 波形
-            ECGMonitor(
-                samples: charge.ecg,
-                tint: charge.isCharging ? Theme.ecgLine : Theme.t3,
-                active: charge.isCharging
-            )
-            .frame(height: 168)
-            .overlay(Rectangle().stroke(Theme.line, lineWidth: 1))
-
-            // 电参数读数
-            HStack(spacing: 0) {
-                eParam(label: "VOLTAGE", value: String(format: "%.1f", charge.voltageEstimate), unit: "V", tint: Theme.amber)
-                eParam(label: "CURRENT", value: String(format: "%.2f", charge.currentEstimate), unit: "A", tint: Theme.purple)
-                eParam(label: "BATTERY", value: String(format: "%.1f", charge.batteryPower), unit: "W", tint: Theme.pink)
-            }
-            .padding(.top, 2)
-
-            HStack {
-                Image(systemName: "hourglass")
-                    .font(.system(size: 9))
-                    .foregroundColor(Theme.t3)
-                Text("预计充满")
-                    .font(Px.cn(9.5))
-                    .foregroundColor(Theme.t3)
-                Text(charge.fullFromSystem ? "SYS" : "EST")
-                    .font(Px.n(7.5))
-                    .foregroundColor(charge.fullFromSystem ? Theme.ecgLine : Theme.t3)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 1)
-                    .overlay(
-                        Rectangle().stroke(
-                            (charge.fullFromSystem ? Theme.ecgLine : Theme.t3).opacity(0.4),
-                            lineWidth: 0.8
-                        )
-                    )
-                Spacer()
-                if let m = charge.fullMinutes {
-                    HStack(alignment: .lastTextBaseline, spacing: 3) {
-                        Text(m >= 60 ? "\(m / 60):\(String(format: "%02d", m % 60))" : "\(m)")
-                            .font(Px.nb(13))
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                        Text(String(format: "%.1f", charge.power))
+                            .font(.system(size: 46, weight: .bold, design: .rounded))
                             .foregroundColor(Theme.t1)
+                            .monospacedDigit()
                             .contentTransition(.numericText())
-                        Text(m >= 60 ? "HR" : "MIN")
-                            .font(Px.n(7.5))
+                        Text("W")
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(Theme.t3)
                     }
-                } else {
-                    Text(charge.fullEstimate)
-                        .font(Px.cn(11))
-                        .foregroundColor(Theme.t2)
+
+                    Text("\(charge.protocolLabel) · 推断")
+                        .font(.system(size: 9.5))
+                        .foregroundColor(Theme.t3)
                 }
-            }
-            .padding(.top, 2)
-        }
-        .padding(14)
-        .card()
-    }
 
-    /// 时长显示：仪表式 MM:SS（超过 1 小时 H:MM:SS），避免中文与像素数字混排
-    private func clock(_ t: TimeInterval) -> String {
-        let s = Int(t)
-        let h = s / 3600
-        let m = (s % 3600) / 60
-        let sec = s % 60
-        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
-        return String(format: "%02d:%02d", m, sec)
-    }
+                Spacer(minLength: 0)
 
-    private func eParam(label: String, value: String, unit: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(label)
-                .font(Px.n(7))
-                .foregroundColor(Theme.t3)
-            HStack(alignment: .lastTextBaseline, spacing: 2) {
-                Text(value)
-                    .font(Px.nb(15))
-                    .foregroundColor(tint)
-                    .contentTransition(.numericText())
-                Text(unit)
-                    .font(Px.n(8))
-                    .foregroundColor(Theme.t3)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // MARK: - 统计
-
-    private var statsCard: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 0) {
-                StatTile(label: "本次时长", value: clock(charge.elapsed), tint: Theme.t1)
-                StatTile(label: "峰值功率", value: String(format: "%.1f", charge.peakPower), unit: "W", tint: Theme.amber)
-                StatTile(label: "充入能量", value: String(format: "%.1f", charge.sessionWh), unit: "Wh", tint: Theme.ecgLine)
+                ZStack {
+                    RingGauge(
+                        progress: min(charge.power / 35.0, 1),
+                        lineWidth: 9,
+                        colors: [Theme.amber, Theme.amberDeep]
+                    )
+                    VStack(spacing: 1) {
+                        Text("\(charge.batteryPercent)")
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .foregroundColor(Theme.t1)
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
+                        Text("%")
+                            .font(.system(size: 8.5, weight: .medium))
+                            .foregroundColor(Theme.t3)
+                    }
+                }
+                .frame(width: 92, height: 92)
             }
 
             Divider().overlay(Theme.line)
 
-            HStack(spacing: 12) {
-                HStack(spacing: 7) {
-                    Image(systemName: "bolt.batteryblock")
-                        .font(.system(size: 11))
-                        .foregroundColor(Theme.ecgLine)
-                    Text("电量")
-                        .font(Px.cn(9))
-                        .foregroundColor(Theme.t3)
-                    Text("\(charge.batteryPercent)%")
-                        .font(Px.nb(12))
-                        .foregroundColor(Theme.t1)
-                        .contentTransition(.numericText())
-                }
-
-                Spacer()
-
-                SegmentedBar(value: charge.level, tint: Theme.ecgLine, height: 6)
-                    .frame(width: 108)
+            HStack(spacing: 0) {
+                StatTile(label: "本次时长", value: Fmt.duration(charge.elapsed), tint: Theme.t1)
+                StatTile(label: "峰值功率", value: String(format: "%.1f", charge.peakPower), unit: "W", tint: Theme.amber)
+                StatTile(label: "充入能量", value: String(format: "%.1f", charge.sessionWh), unit: "Wh", tint: Theme.green)
             }
 
-            HStack(spacing: 7) {
-                Image(systemName: "thermometer.medium")
-                    .font(.system(size: 11))
-                    .foregroundColor(Theme.thermalColor(metrics.estimatedTemp))
-                Text("机身温度")
-                    .font(Px.cn(9))
+            HStack {
+                Image(systemName: "hourglass")
+                    .font(.system(size: 10))
                     .foregroundColor(Theme.t3)
+                Text("预计充满")
+                    .font(.system(size: 10))
+                    .foregroundColor(Theme.t3)
+                Text(charge.fullFromSystem ? "系统" : "估算")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundColor(charge.fullFromSystem ? Theme.green : Theme.t3)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1.5)
+                    .background((charge.fullFromSystem ? Theme.green : Theme.t3).opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                 Spacer()
-                Text(String(format: "%.1f ℃", metrics.estimatedTemp))
-                    .font(Px.nb(12))
-                    .foregroundColor(Theme.thermalColor(metrics.estimatedTemp))
+                Text(charge.fullEstimate)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundColor(Theme.t2)
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
             }
         }
-        .padding(14)
+        .padding(16)
         .card()
+    }
+
+    // MARK: - 统计
+
+    private var statsRow: some View {
+        HStack(spacing: 10) {
+            miniStat(
+                symbol: "bolt.batteryblock",
+                label: "电池侧",
+                value: String(format: "%.1f W", charge.batteryPower),
+                tint: Theme.green
+            )
+            miniStat(
+                symbol: "thermometer.medium",
+                label: "机身温度",
+                value: String(format: "%.1f ℃", metrics.estimatedTemp),
+                tint: Theme.thermalColor(metrics.estimatedTemp)
+            )
+        }
+    }
+
+    private func miniStat(symbol: String, label: String, value: String, tint: Color) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: symbol)
+                .font(.system(size: 14))
+                .foregroundColor(tint)
+                .frame(width: 26, height: 26)
+                .background(tint.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label)
+                    .font(.system(size: 8.5))
+                    .foregroundColor(Theme.t3)
+                Text(value)
+                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                    .foregroundColor(Theme.t1)
+                    .monospacedDigit()
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity)
+        .card(radius: 16)
     }
 
     // MARK: - 本次会话曲线
@@ -230,39 +165,39 @@ struct ChargeView: View {
     private var sessionChart: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("// 本次充电曲线")
-                    .font(Px.cn(9.5, .medium))
+                Text("本次充电曲线")
+                    .font(.system(size: 10.5, weight: .medium))
                     .foregroundColor(Theme.t2)
                 Spacer()
-                Text(charge.isCharging ? "LIVE" : "IDLE")
-                    .font(Px.n(8))
-                    .foregroundColor(charge.isCharging ? Theme.ecgLine : Theme.t3)
+                Text("\(charge.sourceLabel) · 每秒检测")
+                    .font(.system(size: 9))
+                    .foregroundColor(Theme.t3)
             }
 
             if charge.samples.count < 2 {
                 VStack(spacing: 6) {
                     Image(systemName: "waveform.path.ecg")
-                        .font(.system(size: 20))
+                        .font(.system(size: 22))
                         .foregroundColor(Theme.t3.opacity(0.6))
                     Text(charge.isCharging ? "正在采集，电量每变化 1% 记录一次" : "接入电源后开始采样")
-                        .font(Px.cn(9.5))
+                        .font(.system(size: 10))
                         .foregroundColor(Theme.t3)
                         .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: 84)
+                .frame(height: 92)
             } else {
                 StepChart(values: charge.samples, tint: Theme.amber)
-                    .frame(height: 92)
+                    .frame(height: 96)
 
                 HStack(spacing: 0) {
-                    Text("START")
-                        .font(Px.n(7.5))
+                    Text("开始")
+                        .font(.system(size: 8.5))
                         .foregroundColor(Theme.t3)
                     Spacer()
-                    Text("NOW")
-                        .font(Px.n(7.5))
-                        .foregroundColor(Theme.amber)
+                    Text("现在")
+                        .font(.system(size: 8.5))
+                        .foregroundColor(Theme.t3)
                 }
             }
         }
@@ -275,19 +210,19 @@ struct ChargeView: View {
     private var recordList: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("// 充电记录")
-                    .font(Px.cn(9.5, .medium))
+                Text("充电记录")
+                    .font(.system(size: 10.5, weight: .medium))
                     .foregroundColor(Theme.t2)
                 Spacer()
-                Text("\(charge.records.count)")
-                    .font(Px.n(9))
+                Text("\(charge.records.count) 条")
+                    .font(.system(size: 9))
                     .foregroundColor(Theme.t3)
             }
             .padding(.bottom, 8)
 
             if charge.records.isEmpty {
                 Text("暂无记录，完成一次充电后自动生成")
-                    .font(Px.cn(9.5))
+                    .font(.system(size: 10))
                     .foregroundColor(Theme.t3)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 18)
@@ -295,32 +230,33 @@ struct ChargeView: View {
                 ForEach(charge.records.prefix(5)) { record in
                     HStack(spacing: 10) {
                         ZStack {
-                            Rectangle()
+                            Circle()
                                 .fill(Theme.amber.opacity(0.12))
-                                .frame(width: 26, height: 26)
-                                .overlay(Rectangle().stroke(Theme.amber.opacity(0.35), lineWidth: 0.8))
+                                .frame(width: 28, height: 28)
                             Image(systemName: "bolt.fill")
-                                .font(.system(size: 10))
+                                .font(.system(size: 11))
                                 .foregroundColor(Theme.amber)
                         }
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("\(Int(record.startLevel * 100))% > \(Int(record.endLevel * 100))%")
-                                .font(Px.nb(11))
+                            Text("\(Int(record.startLevel * 100))% → \(Int(record.endLevel * 100))%")
+                                .font(.system(size: 11.5, weight: .semibold, design: .rounded))
                                 .foregroundColor(Theme.t1)
+                                .monospacedDigit()
                             Text(record.date.formatted(date: .abbreviated, time: .shortened))
-                                .font(Px.cn(8.5))
+                                .font(.system(size: 9))
                                 .foregroundColor(Theme.t3)
                         }
 
                         Spacer()
 
                         VStack(alignment: .trailing, spacing: 2) {
-                            Text(String(format: "PK %.1fW", record.peakPower))
-                                .font(Px.n(10))
+                            Text(String(format: "峰值 %.1f W", record.peakPower))
+                                .font(.system(size: 10.5, weight: .medium, design: .rounded))
                                 .foregroundColor(Theme.t2)
-                            Text(String(format: "%.1fWh · %@", record.wattHours, Fmt.duration(record.duration)))
-                                .font(Px.cn(8.5))
+                                .monospacedDigit()
+                            Text(String(format: "%.1f Wh · %@", record.wattHours, Fmt.duration(record.duration)))
+                                .font(.system(size: 9))
                                 .foregroundColor(Theme.t3)
                         }
                     }
@@ -343,17 +279,17 @@ struct ChargeView: View {
             Image(systemName: "info.circle")
                 .font(.system(size: 10))
                 .foregroundColor(Theme.t3)
-            Text("心电图波形为功率的可视化表达：振幅与节律由实测功率驱动，并非真实电生理信号。iOS 未开放充电功率与充电器协商协议的读数接口，功率由电量变化速率推算（误差通常 ±1.5W 内），电压/电流为按 PD 档位推断值（本机支持 PD 3.1 AVS/EPR，45W 即经 AVS 协商）。仅作参考，不能替代专业功率计。")
-                .font(Px.cn(9))
+            Text("iOS 未开放充电功率与充电器协商协议的读数接口：功率由电量变化速率推算（ΔSoC × 电池额定能量 ÷ 时间 ÷ 链路效率），误差通常在 ±1.5W 内；协议为按功率档位推断（本机支持 PD 3.1 AVS/EPR，45W 即经 AVS 协商），不代表充电器实际协商结果。仅作参考，不能替代专业功率计。")
+                .font(.system(size: 9))
                 .foregroundColor(Theme.t3)
                 .lineSpacing(2)
         }
         .padding(12)
-        .card(radius: 14, corners: false)
+        .card(radius: 14)
     }
 }
 
-// MARK: - 阶梯折线图（像素版）
+// MARK: - 阶梯折线图
 
 struct StepChart: View {
     var values: [Double]
@@ -368,26 +304,17 @@ struct StepChart: View {
             let stepX = w / CGFloat(count)
 
             ZStack {
-                // 网格
-                Canvas { ctx, size in
-                    var p = Path()
-                    var y: CGFloat = 0
-                    while y <= size.height {
+                // 参考线
+                Path { p in
+                    for i in 1...3 {
+                        let y = h * CGFloat(i) / 4
                         p.move(to: CGPoint(x: 0, y: y))
-                        p.addLine(to: CGPoint(x: size.width, y: y))
-                        y += size.height / 6
+                        p.addLine(to: CGPoint(x: w, y: y))
                     }
-                    var x: CGFloat = 0
-                    while x <= size.width {
-                        p.move(to: CGPoint(x: x, y: 0))
-                        p.addLine(to: CGPoint(x: x, y: size.height))
-                        x += size.width / 8
-                    }
-                    ctx.stroke(p, with: .color(Theme.amber.opacity(0.08)), lineWidth: 0.5)
                 }
-                .drawingGroup()
+                .stroke(Color.white.opacity(0.045), lineWidth: 0.7)
 
-                // 面积
+                // 阶梯面积
                 Path { p in
                     p.move(to: CGPoint(x: 0, y: h))
                     for (i, v) in values.enumerated() {
@@ -405,7 +332,7 @@ struct StepChart: View {
                 }
                 .fill(
                     LinearGradient(
-                        colors: [tint.opacity(0.26), tint.opacity(0.015)],
+                        colors: [tint.opacity(0.28), tint.opacity(0.02)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -413,27 +340,24 @@ struct StepChart: View {
 
                 // 阶梯线
                 Path { p in
-                    var lastY = h
                     for (i, v) in values.enumerated() {
                         let x = CGFloat(i) * stepX
                         let y = h - CGFloat(v / maxV) * (h - 6)
                         if i == 0 {
                             p.move(to: CGPoint(x: x, y: y))
                         } else {
-                            p.addLine(to: CGPoint(x: x, y: lastY))
+                            p.addLine(to: CGPoint(x: x - stepX, y: y))
                             p.addLine(to: CGPoint(x: x, y: y))
                         }
-                        lastY = y
                     }
                 }
-                .stroke(tint, style: StrokeStyle(lineWidth: 1.8, lineCap: .butt, lineJoin: .miter))
-                .shadow(color: tint.opacity(0.7), radius: 3)
+                .stroke(tint, style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round))
 
-                // 峰值方块
+                // 峰值点
                 if let peak = values.max(), let idx = values.firstIndex(of: peak) {
                     let x = CGFloat(idx) * stepX
                     let y = h - CGFloat(peak / maxV) * (h - 6)
-                    Rectangle()
+                    Circle()
                         .fill(Theme.t1)
                         .frame(width: 4, height: 4)
                         .position(x: x, y: y)

@@ -30,7 +30,7 @@ struct MonitorView: View {
     private var supportCard: some View {
         HStack(spacing: 11) {
             ZStack {
-                Rectangle()
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
                     .fill((islandSupported ? Theme.green : Theme.orange).opacity(0.14))
                     .frame(width: 36, height: 36)
                 Image(systemName: islandSupported ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
@@ -67,11 +67,11 @@ struct MonitorView: View {
             // 模拟机身顶部
             VStack(spacing: 0) {
                 ZStack {
-                    Rectangle()
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
                         .fill(Color.black)
                         .frame(width: expanded ? 330 : 124, height: expanded ? 92 : 36)
                         .overlay(
-                            Rectangle()
+                            RoundedRectangle(cornerRadius: 26, style: .continuous)
                                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
                         )
 
@@ -88,7 +88,7 @@ struct MonitorView: View {
                     )
                 )
             }
-            .clipShape(Rectangle())
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
 
             Button {
                 withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
@@ -101,7 +101,7 @@ struct MonitorView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 9)
                     .background(Theme.amber.opacity(0.12))
-                    .clipShape(Rectangle())
+                    .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
             }
             .buttonStyle(.plain)
         }
@@ -118,7 +118,7 @@ struct MonitorView: View {
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(Theme.purple)
                         Text("\(Int(metrics.cpuUsage * 100))%")
-                            .font(Px.nb(12))
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                             .monospacedDigit()
                     }
@@ -129,7 +129,7 @@ struct MonitorView: View {
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(Theme.thermalColor(metrics.estimatedTemp))
                         Text(String(format: "%.1f°", metrics.estimatedTemp))
-                            .font(Px.nb(12))
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                             .monospacedDigit()
                     }
@@ -140,7 +140,7 @@ struct MonitorView: View {
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(Theme.amber)
                         Text("\(metrics.batteryPercent)%")
-                            .font(Px.nb(12))
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                             .monospacedDigit()
                     }
@@ -151,7 +151,7 @@ struct MonitorView: View {
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(Theme.blue)
                         Text(Fmt.speed(metrics.netDown).replacingOccurrences(of: "/s", with: ""))
-                            .font(Px.nb(12))
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                             .monospacedDigit()
                             .lineLimit(1)
@@ -165,7 +165,7 @@ struct MonitorView: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(Theme.purple)
                     Text("\(Int(metrics.cpuUsage * 100))%")
-                        .font(Px.nb(11))
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .monospacedDigit()
                     Circle()
@@ -218,7 +218,7 @@ struct MonitorView: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(Theme.orange.opacity(0.12))
-                    .clipShape(Rectangle())
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             }
 
             // 网格背景 + 悬浮窗
@@ -254,27 +254,27 @@ struct MonitorView: View {
                                 .foregroundColor(Theme.t2)
                         }
                         Text("\(Int(metrics.cpuUsage * 100))%")
-                            .font(Px.nb(17))
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                             .monospacedDigit()
                         Text(String(format: "%.1f℃", metrics.estimatedTemp))
-                            .font(Px.n(9))
+                            .font(.system(size: 9, weight: .medium, design: .rounded))
                             .foregroundColor(Theme.amber)
                             .monospacedDigit()
                     }
                     .padding(9)
                     .frame(width: 92, alignment: .leading)
                     .background(.ultraThinMaterial)
-                    .clipShape(Rectangle())
+                    .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
                     .overlay(
-                        Rectangle()
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
                             .stroke(Color.white.opacity(0.12), lineWidth: 1)
                     )
                     .padding(10)
                 }
             }
             .frame(height: 130)
-            .clipShape(Rectangle())
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .padding(14)
         .card()
