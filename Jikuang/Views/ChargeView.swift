@@ -169,7 +169,7 @@ struct ChargeView: View {
                     .font(.system(size: 10.5, weight: .medium))
                     .foregroundColor(Theme.t2)
                 Spacer()
-                Text("1% 精度 · 每秒检测")
+                Text("\(charge.sourceLabel) · 每秒检测")
                     .font(.system(size: 9))
                     .foregroundColor(Theme.t3)
             }

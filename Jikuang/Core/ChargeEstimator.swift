@@ -39,6 +39,7 @@ final class ChargeEstimator: ObservableObject {
     @Published var records: [Record] = []
     @Published var measuring = false
     @Published var historyPower: [Double] = Array(repeating: 0, count: 40)
+    @Published var sourceLabel: String = "-"   // 电量数据源，用于排错
 
     // MARK: - 参数
 
@@ -82,6 +83,7 @@ final class ChargeEstimator: ObservableObject {
         isCharging = snap.isCharging
         lastChargingState = snap.isCharging
         systemMinutesToFull = snap.minutesToFull
+        sourceLabel = snap.precise ? "1% 精度" : "5% 量化"
 
         if isCharging { startSession() }
 
@@ -108,6 +110,7 @@ final class ChargeEstimator: ObservableObject {
         level = snap.level
         batteryPercent = PowerSource.percent(snap.level)
         systemMinutesToFull = snap.minutesToFull
+        sourceLabel = snap.precise ? "1% 精度" : "5% 量化"
 
         let currentCharging = snap.isCharging
         if currentCharging != lastChargingState {
