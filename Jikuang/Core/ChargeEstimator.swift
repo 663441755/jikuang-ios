@@ -38,13 +38,13 @@ final class ChargeEstimator: ObservableObject {
     // MARK: - 参数
 
     /// 电池额定能量（Wh）。按机型族分档，用于换算功率。
-    private var batteryWh: Double {
+    private lazy var batteryWh: Double = {
         let model = SystemMetrics.machineIdentifier()
-        if model.contains("17,") || model.contains("18,") { return 19.5 }
+        if model.contains("17,") || model.contains("18,") || model.contains("19,") { return 19.5 }
         if model.contains("15,") || model.contains("16,") { return 17.1 }
         if model.contains("14,") || model.contains("13,") { return 14.2 }
         return 16.0
-    }
+    }()
 
     /// 充电链路效率（充电器 → 电池）
     private let efficiency: Double = 0.87

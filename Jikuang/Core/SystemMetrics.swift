@@ -113,9 +113,9 @@ final class SystemMetrics: ObservableObject {
         guard result == KERN_SUCCESS, let info else { return [] }
 
         defer {
-            vm_deallocate(
+            _ = vm_deallocate(
                 mach_task_self_,
-                vm_address_t(bitPattern: info),
+                vm_address_t(UInt(bitPattern: info)),
                 vm_size_t(infoCount) * vm_size_t(MemoryLayout<integer_t>.stride)
             )
         }

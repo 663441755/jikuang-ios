@@ -19,21 +19,13 @@ targets:
     platform: iOS
     sources:
       - path: Jikuang
+    info:
+      path: Info.plist
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jikuang.devicepulse
         PRODUCT_NAME: Jikuang
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: 机况
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
-        INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleLightContent
-        INFOPLIST_KEY_UIUserInterfaceStyle: Dark
-        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
-        INFOPLIST_KEY_NSMotionUsageDescription: 用于陀螺仪、加速度计、磁力计与气压计的硬件检测
-        INFOPLIST_KEY_NSMicrophoneUsageDescription: 用于麦克风录音电平检测
-        INFOPLIST_KEY_NSCameraUsageDescription: 用于前后摄像头枚举与对焦检测
-        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: 用于 GPS 与海拔检测
+        GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "1"
 
 schemes:
