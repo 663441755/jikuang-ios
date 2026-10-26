@@ -1,0 +1,16 @@
+# WorkBuddy 工作数据
+.workbuddy/
+
+# XcodeGen 生成物
+*.xcodeproj
+*.xcworkspace
+
+# 构建产物
+build/
+Payload/
+*.ipa
+DerivedData/
+
+# 系统文件
+.DS_Store
+Thumbs.db
