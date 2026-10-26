@@ -96,8 +96,11 @@ enum DeviceInfo {
         return nativeScreenHeight() >= 2556
     }
 
-    /// 顶部安全区高度
+    /// 顶部安全区高度（小组件扩展内无 UIApplication，走不了这条路径）
     static func topSafeArea() -> CGFloat {
+        #if JIKUANG_WIDGET
+        return 0
+        #else
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         for scene in scenes {
             if let key = scene.windows.first(where: { $0.isKeyWindow }) {
@@ -110,10 +113,14 @@ enum DeviceInfo {
             }
         }
         return 0
+        #endif
     }
 
     /// 物理像素高度
     static func nativeScreenHeight() -> CGFloat {
+        #if JIKUANG_WIDGET
+        return 0
+        #else
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         for scene in scenes {
             let bounds = scene.screen.nativeBounds
@@ -123,6 +130,7 @@ enum DeviceInfo {
         }
         let bounds = UIScreen.main.nativeBounds
         return max(bounds.width, bounds.height)
+        #endif
     }
 
     /// 供监控页显示的判定依据

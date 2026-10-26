@@ -39,10 +39,10 @@ struct BatteryProvider: TimelineProvider {
 
         let storageText: String = {
             let url = URL(fileURLWithPath: NSHomeDirectory())
-            guard let vals = try? url.resourceValues(forKeys: [.volumeTotalCapacityKey, .volumeAvailableCapacityForImportantUsageKey]),
-                  let total = vals.volumeTotalCapacity,
-                  let free = vals.volumeAvailableCapacityForImportantUsage,
-                  total > free else { return "--" }
+            guard let vals = try? url.resourceValues(forKeys: [.volumeTotalCapacityKey, .volumeAvailableCapacityForImportantUsageKey]) else { return "--" }
+            let total = Int64(vals.volumeTotalCapacity ?? 0)
+            let free = vals.volumeAvailableCapacityForImportantUsage ?? 0
+            guard total > 0, total > free else { return "--" }
             return String(format: "%.0f GB", Double(total - free) / 1e9)
         }()
 

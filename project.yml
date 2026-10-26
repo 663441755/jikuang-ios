@@ -45,6 +45,7 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "1"
         SKIP_INSTALL: YES
+        OTHER_SWIFT_FLAGS: "$(inherited) -DJIKUANG_WIDGET"
 
 schemes:
   Jikuang:
