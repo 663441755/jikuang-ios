@@ -261,47 +261,77 @@ struct ClearView: View {
 
 // MARK: - 灵动岛 · 充电实时活动
 
+/// 指标配色
+private func metricTint(_ kind: MetricKind) -> Color {
+    switch kind {
+    case .net:     return .cyan
+    case .cpu:     return .orange
+    case .mem:     return .purple
+    case .thermal: return .red
+    }
+}
+
 struct ChargeLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ChargeActivityAttributes.self) { context in
             // 锁屏横幅
             ChargeLockBanner(state: context.state)
         } dynamicIsland: { context in
-            DynamicIsland {
+            let state = context.state
+            let tint = metricTint(state.metric)
+
+            return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "bolt.fill")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.yellow)
-                        Text("\(context.state.percent)%")
-                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 5) {
+                            Image(systemName: state.metric.icon)
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(tint)
+                            Text(state.metric.shortLabel)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        }
+                        Text(state.valueText)
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
                             .monospacedDigit()
-                    }
-                }
-                DynamicIslandExpandedRegion(.trailing) {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(context.state.powerText)
-                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                        Text("充电功率")
+                            .foregroundColor(tint)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        Text(state.detailText)
                             .font(.system(size: 9))
                             .foregroundColor(.secondary)
                     }
                 }
+                DynamicIslandExpandedRegion(.trailing) {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "bolt.fill")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.yellow)
+                            Text("\(state.percent)%")
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                        }
+                        Text(state.powerText)
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundColor(.secondary)
+                    }
+                }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(alignment: .leading, spacing: 5) {
+                    VStack(alignment: .leading, spacing: 6) {
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
                                 Capsule().fill(Color.white.opacity(0.15))
                                 Capsule()
                                     .fill(Color.yellow)
-                                    .frame(width: geo.size.width * max(0.02, Double(context.state.percent) / 100))
+                                    .frame(width: geo.size.width * max(0.02, Double(state.percent) / 100))
                             }
                         }
                         .frame(height: 6)
 
-                        HStack {
-                            if let eta = context.state.etaDate, eta > Date() {
+                        HStack(spacing: 6) {
+                            if let eta = state.etaDate, eta > Date() {
                                 Image(systemName: "hourglass")
                                     .font(.system(size: 9))
                                     .foregroundColor(.secondary)
@@ -314,26 +344,41 @@ struct ChargeLiveActivity: Widget {
                                     .font(.system(size: 11))
                                     .foregroundColor(.secondary)
                             }
-                            Spacer()
-                            Text("机况")
-                                .font(.system(size: 9, weight: .semibold))
-                                .foregroundColor(.secondary)
+
+                            Spacer(minLength: 0)
+
+                            // 点击循环切换：网速 → CPU → 内存 → 温度
+                            Button(intent: CycleMetricIntent()) {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "arrow.triangle.2.circlepath")
+                                        .font(.system(size: 9, weight: .bold))
+                                    Text("切换")
+                                        .font(.system(size: 10.5, weight: .semibold))
+                                }
+                                .foregroundColor(tint)
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 4)
+                                .background(tint.opacity(0.18))
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
             } compactLeading: {
-                Image(systemName: "bolt.fill")
+                Image(systemName: state.metric.icon)
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.yellow)
+                    .foregroundColor(tint)
             } compactTrailing: {
-                Text("\(context.state.percent)%")
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                Text(state.valueText)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundColor(.yellow)
+                    .foregroundColor(tint)
+                    .lineLimit(1)
             } minimal: {
-                Image(systemName: "bolt.fill")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.yellow)
+                Image(systemName: state.metric.icon)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(tint)
             }
         }
     }
@@ -344,44 +389,52 @@ struct ChargeLockBanner: View {
     var state: ChargeActivityAttributes.ContentState
 
     var body: some View {
+        let tint = metricTint(state.metric)
+
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(Color.yellow.opacity(0.15))
-                    .frame(width: 38, height: 38)
-                Image(systemName: "bolt.fill")
+                    .fill(tint.opacity(0.15))
+                    .frame(width: 40, height: 40)
+                Image(systemName: state.metric.icon)
                     .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(.yellow)
+                    .foregroundColor(tint)
             }
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text("充电中 · \(state.percent)%")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(state.valueText)
+                    .font(.system(size: 19, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                if let eta = state.etaDate, eta > Date() {
-                    HStack(spacing: 3) {
-                        Text("预计充满")
-                        Text(timerInterval: Date()...eta, countsDown: true)
-                            .monospacedDigit()
-                    }
-                    .font(.system(size: 11))
+                Text("\(state.metric.label) · \(state.detailText)")
+                    .font(.system(size: 10))
                     .foregroundColor(.secondary)
-                } else {
-                    Text("预计充满时间估算中")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                }
             }
 
             Spacer(minLength: 0)
 
             VStack(alignment: .trailing, spacing: 3) {
+                HStack(spacing: 3) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.yellow)
+                    Text("\(state.percent)%")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                }
                 Text(state.powerText)
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .font(.system(size: 10.5, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                Text("功率")
-                    .font(.system(size: 9))
                     .foregroundColor(.secondary)
+                Button(intent: CycleMetricIntent()) {
+                    Text("切换")
+                        .font(.system(size: 9.5, weight: .semibold))
+                        .foregroundColor(tint)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(tint.opacity(0.18))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(14)

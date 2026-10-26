@@ -120,8 +120,6 @@ final class ChargeEstimator: ObservableObject {
         isCharging = currentCharging
 
         guard isCharging else {
-            // 拔电：结束灵动岛实时活动
-            ChargeActivityManager.shared.sync(percent: batteryPercent, isCharging: false, power: 0, minutesToFull: nil, full: false)
             if power > 0 {
                 // 拔出后动量衰减
                 power = max(power * 0.7 - 0.6, 0)
@@ -164,15 +162,6 @@ final class ChargeEstimator: ObservableObject {
         }
 
         updateFullEstimate()
-
-        // 充电中：同步灵动岛（电量变 1% 或每 30 秒更新一次功率）
-        ChargeActivityManager.shared.sync(
-            percent: batteryPercent,
-            isCharging: true,
-            power: power,
-            minutesToFull: systemMinutesToFull,
-            full: level >= 0.995
-        )
     }
 
     private func recomputePower() {
