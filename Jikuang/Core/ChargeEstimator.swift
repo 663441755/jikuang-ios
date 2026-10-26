@@ -254,6 +254,26 @@ final class ChargeEstimator: ObservableObject {
         }
     }
 
+    // MARK: - 充电协议推断
+
+    /// iOS 没有公开接口读取充电器协商协议（PD/QC 档位），
+    /// 这里按实测功率落到常见协议档位，仅供推断参考。
+    var protocolLabel: String {
+        if !isCharging { return "未接入电源" }
+        if measuring && power < 0.5 { return "采样中" }
+
+        switch power {
+        case ..<0.5:    return "待采样"
+        case ..<7.5:    return "慢速充电 · 5V1A 档"
+        case ..<12:     return "常规充电 · 5V2.4A 档"
+        case ..<18:     return "快充 · QC / PD 低功率档"
+        case ..<22:     return "PD 快充 · 20W 档"
+        case ..<28:     return "PD 快充 · 30W 档"
+        case ..<34:     return "PD 3.0 · 高功率档"
+        default:        return "PD 3.1 · 高功率档"
+        }
+    }
+
     // MARK: - 会话
 
     private func startSession() {

@@ -73,8 +73,18 @@ enum PowerSource {
                   let desc = dict as? [String: Any] else { continue }
 
             // 键名取自 IOKit Power Sources 的标准字典
-            let current = desc["Current Capacity"] as? Int ?? -1
-            let maxCap = desc["Max Capacity"] as? Int ?? 100
+            var current = desc["Current Capacity"] as? Int ?? -1
+            var maxCap = desc["Max Capacity"] as? Int ?? 100
+
+            // AppleRaw* 为 mAh 原始值，比取整后的百分比更精确，
+            // 用它算出的带小数电量与状态栏一致（状态栏是四舍五入）
+            if let rawCur = desc["AppleRawCurrentCapacity"] as? Int,
+               let rawMax = desc["AppleRawMaxCapacity"] as? Int,
+               rawMax > 0, rawCur >= 0 {
+                current = rawCur
+                maxCap = rawMax
+            }
+
             guard maxCap > 0, current >= 0 else { continue }
 
             var snap = PowerSnapshot()
@@ -85,7 +95,7 @@ enum PowerSource {
             if let t = desc["Time to Full Charge"] as? Int, t > 0 {
                 snap.minutesToFull = t
             }
-            snap.source = "IOKit"
+            snap.source = (current != desc["Current Capacity"] as? Int) ? "IOKit Raw" : "IOKit"
             snap.precise = true
             return snap
         }

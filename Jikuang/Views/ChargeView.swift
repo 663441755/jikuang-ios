@@ -55,7 +55,7 @@ struct ChargeView: View {
                             .foregroundColor(Theme.t3)
                     }
 
-                    Text("当前充电功率 · 估算")
+                    Text("\(charge.protocolLabel) · 推断")
                         .font(.system(size: 9.5))
                         .foregroundColor(Theme.t3)
                 }
@@ -279,7 +279,7 @@ struct ChargeView: View {
             Image(systemName: "info.circle")
                 .font(.system(size: 10))
                 .foregroundColor(Theme.t3)
-            Text("iOS 未开放充电功率读数接口，这里的功率由电量变化速率推算（ΔSoC × 电池额定能量 ÷ 时间 ÷ 链路效率），误差通常在 ±1.5W 内。仅作参考，不能替代专业功率计。")
+            Text("iOS 未开放充电功率与充电器协商协议的读数接口：功率由电量变化速率推算（ΔSoC × 电池额定能量 ÷ 时间 ÷ 链路效率），误差通常在 ±1.5W 内；协议为按功率档位推断，不代表充电器实际协商结果。仅作参考，不能替代专业功率计。")
                 .font(.system(size: 9))
                 .foregroundColor(Theme.t3)
                 .lineSpacing(2)

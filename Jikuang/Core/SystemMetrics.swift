@@ -387,7 +387,8 @@ enum Fmt {
         let m = (s % 3600) / 60
         if d > 0 { return "\(d)天 \(h)小时" }
         if h > 0 { return "\(h)小时 \(m)分" }
-        return "\(m)分钟"
+        if m > 0 { return "\(m)分钟" }
+        return "\(max(s, 1))秒"
     }
 
     static func percent(_ value: Double, decimals: Int = 0) -> String {
