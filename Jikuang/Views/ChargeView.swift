@@ -69,10 +69,11 @@ struct ChargeView: View {
                         colors: [Theme.amber, Theme.amberDeep]
                     )
                     VStack(spacing: 1) {
-                        Text("\(Int(charge.level * 100))")
+                        Text("\(charge.batteryPercent)")
                             .font(.system(size: 22, weight: .bold, design: .rounded))
                             .foregroundColor(Theme.t1)
                             .monospacedDigit()
+                            .contentTransition(.numericText())
                         Text("%")
                             .font(.system(size: 8.5, weight: .medium))
                             .foregroundColor(Theme.t3)
@@ -96,11 +97,19 @@ struct ChargeView: View {
                 Text("预计充满")
                     .font(.system(size: 10))
                     .foregroundColor(Theme.t3)
+                Text(charge.fullFromSystem ? "系统" : "估算")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundColor(charge.fullFromSystem ? Theme.green : Theme.t3)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1.5)
+                    .background((charge.fullFromSystem ? Theme.green : Theme.t3).opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                 Spacer()
                 Text(charge.fullEstimate)
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundColor(Theme.t2)
                     .monospacedDigit()
+                    .contentTransition(.numericText())
             }
         }
         .padding(16)
@@ -160,7 +169,7 @@ struct ChargeView: View {
                     .font(.system(size: 10.5, weight: .medium))
                     .foregroundColor(Theme.t2)
                 Spacer()
-                Text("每 1% 采样")
+                Text("1% 精度 · 每秒检测")
                     .font(.system(size: 9))
                     .foregroundColor(Theme.t3)
             }

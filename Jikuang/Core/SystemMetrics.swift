@@ -18,8 +18,10 @@ final class SystemMetrics: ObservableObject {
     @Published var netDown: Double = 0             // B/s
     @Published var netUp: Double = 0               // B/s
     @Published var batteryLevel: Double = 0        // 0...1
+    @Published var batteryPercent: Int = 0         // 整数百分比（1% 精度）
     @Published var isCharging: Bool = false
     @Published var batteryState: String = "未充电"
+    @Published var powerMinutesToFull: Int? = nil   // 系统预估的充满剩余分钟
     @Published var thermalText: String = "正常"
     @Published var thermalLevel: Int = 0
     @Published var estimatedTemp: Double = 31.0
@@ -282,23 +284,21 @@ final class SystemMetrics: ObservableObject {
     // MARK: - 电池
 
     private func readBattery() {
-        let level = UIDevice.current.batteryLevel
-        batteryLevel = level < 0 ? 0 : Double(level)
+        let snap = PowerSource.snapshot()
+        batteryLevel = snap.level
+        isCharging = snap.isCharging
+        batteryPercent = PowerSource.percent(snap.level)
 
-        switch UIDevice.current.batteryState {
-        case .charging:
-            isCharging = true
-            batteryState = "充电中"
-        case .full:
-            isCharging = true
+        if snap.isFull {
             batteryState = "已充满"
-        case .unplugged:
-            isCharging = false
+        } else if snap.isCharging {
+            batteryState = "充电中"
+        } else if snap.pluggedIn {
+            batteryState = "已连电源"
+        } else {
             batteryState = "使用中"
-        default:
-            isCharging = false
-            batteryState = "未知"
         }
+        powerMinutesToFull = snap.minutesToFull
     }
 
     // MARK: - 温度估算（一阶热模型）
@@ -344,16 +344,7 @@ final class SystemMetrics: ObservableObject {
     // MARK: - 设备信息
 
     static func machineIdentifier() -> String {
-        var systemInfo = utsname()
-        uname(&systemInfo)
-        let mirror = Mirror(reflecting: systemInfo.machine)
-        var identifier = ""
-        for child in mirror.children {
-            if let value = child.value as? Int8, value != 0 {
-                identifier.append(Character(UnicodeScalar(UInt8(bitPattern: value))))
-            }
-        }
-        return identifier.isEmpty ? "Unknown" : identifier
+        DeviceInfo.machineIdentifier()
     }
 
     static func screenDescription() -> String {

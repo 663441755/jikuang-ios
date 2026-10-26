@@ -19,6 +19,8 @@ targets:
     platform: iOS
     sources:
       - path: Jikuang
+    dependencies:
+      - sdk: IOKit.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jikuang.devicepulse

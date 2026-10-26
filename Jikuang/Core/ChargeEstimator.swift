@@ -7,6 +7,8 @@ import UIKit
 /// 以电量百分比变化量（ΔSoC）乘以电池额定能量（Wh），除以时间差得到电池侧功率，
 /// 再除以充电链路效率修正，得到充电器侧功率。
 /// 结果标注为「估算值」，与 App Store 同类产品做法一致。
+///
+/// 电量来源为 IOKit（1% 精度），不是 UIDevice.batteryLevel（5% 量化）。
 final class ChargeEstimator: ObservableObject {
 
     struct Record: Identifiable, Codable {
@@ -23,13 +25,16 @@ final class ChargeEstimator: ObservableObject {
 
     @Published var power: Double = 0          // 充电器侧功率 W
     @Published var batteryPower: Double = 0   // 电池侧功率 W
-    @Published var level: Double = 0
+    @Published var level: Double = 0          // 0...1
+    @Published var batteryPercent: Int = 0    // 整数百分比
     @Published var isCharging = false
     @Published var peakPower: Double = 0
     @Published var sessionWh: Double = 0
     @Published var sessionStart: Date?
     @Published var elapsed: TimeInterval = 0
     @Published var fullEstimate: String = "--"
+    @Published var fullFromSystem = false     // true = 用的是系统给的充满时间
+    @Published var systemMinutesToFull: Int? = nil
     @Published var samples: [Double] = []     // 本次会话逐段功率
     @Published var records: [Record] = []
     @Published var measuring = false
@@ -40,7 +45,7 @@ final class ChargeEstimator: ObservableObject {
     /// 电池额定能量（Wh）。按机型族分档，用于换算功率。
     private lazy var batteryWh: Double = {
         let model = SystemMetrics.machineIdentifier()
-        if model.contains("17,") || model.contains("18,") || model.contains("19,") { return 19.5 }
+        if model.contains("17,") || model.contains("18,") || model.contains("19,") || model.contains("20,") { return 19.5 }
         if model.contains("15,") || model.contains("16,") { return 17.1 }
         if model.contains("14,") || model.contains("13,") { return 14.2 }
         return 16.0
@@ -61,20 +66,26 @@ final class ChargeEstimator: ObservableObject {
     private var timer: Timer?
     private var lastChargingState = false
     private var pendingIntervals: [Double] = []   // 最近的功率区间值
+    private var lastTick = Date()
+    private var startLevelForSession: Double = 0
 
     private let defaultsKey = "jikuang.charge.records"
 
     init() {
         UIDevice.current.isBatteryMonitoringEnabled = true
         loadRecords()
-        level = Double(max(UIDevice.current.batteryLevel, 0))
-        lastLevel = level
-        isCharging = UIDevice.current.batteryState == .charging || UIDevice.current.batteryState == .full
-        lastChargingState = isCharging
+
+        let snap = PowerSource.snapshot()
+        level = snap.level
+        batteryPercent = PowerSource.percent(snap.level)
+        lastLevel = snap.level
+        isCharging = snap.isCharging
+        lastChargingState = snap.isCharging
+        systemMinutesToFull = snap.minutesToFull
 
         if isCharging { startSession() }
 
-        let t = Timer(timeInterval: 2.0, repeats: true) { [weak self] _ in
+        let t = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.tick()
         }
         RunLoop.main.add(t, forMode: .common)
@@ -88,22 +99,22 @@ final class ChargeEstimator: ObservableObject {
     // MARK: - 采样
 
     private func tick() {
-        UIDevice.current.isBatteryMonitoringEnabled = true
-        let currentLevel = Double(max(UIDevice.current.batteryLevel, 0))
-        let currentCharging = UIDevice.current.batteryState == .charging || UIDevice.current.batteryState == .full
+        let now = Date()
+        // 后台回到前台时 dt 会很大，钳住避免能量一次性暴增
+        let dt = min(max(now.timeIntervalSince(lastTick), 0.2), 5.0)
+        lastTick = now
 
-        level = currentLevel
+        let snap = PowerSource.snapshot()
+        level = snap.level
+        batteryPercent = PowerSource.percent(snap.level)
+        systemMinutesToFull = snap.minutesToFull
 
-        // 充放电状态切换
+        let currentCharging = snap.isCharging
         if currentCharging != lastChargingState {
-            if currentCharging {
-                startSession()
-            } else {
-                endSession()
-            }
+            if currentCharging { startSession() } else { endSession() }
             lastChargingState = currentCharging
-            isCharging = currentCharging
         }
+        isCharging = currentCharging
 
         guard isCharging else {
             if power > 0 {
@@ -113,32 +124,38 @@ final class ChargeEstimator: ObservableObject {
             }
             batteryPower = 0
             measuring = false
+            updateFullEstimate()
             return
         }
 
         if let start = sessionStart {
-            elapsed = Date().timeIntervalSince(start)
+            elapsed = now.timeIntervalSince(start)
         }
 
-        // 电量为 0 或 -1 时无法测量
-        guard currentLevel > 0 else {
+        // 电量为 0 时无法测量
+        guard level > 0 else {
             measuring = true
+            updateFullEstimate()
             return
         }
 
-        // 电量跳变才记录样本（1% 为系统最小分辨率）
-        if abs(currentLevel - lastLevel) >= 0.009 {
-            levelSamples.append(LevelSample(level: currentLevel, at: Date()))
-            lastLevel = currentLevel
+        // 电量每变化 1% 记录一个样本（IOKit 为 1% 精度）
+        if abs(level - lastLevel) >= 0.005 {
+            levelSamples.append(LevelSample(level: level, at: now))
+            lastLevel = level
             recomputePower()
         } else if levelSamples.isEmpty {
-            levelSamples.append(LevelSample(level: currentLevel, at: Date()))
-            measuring = true
+            levelSamples.append(LevelSample(level: level, at: now))
+            if power == 0 { measuring = true }
         }
 
-        // 样本超过 12 个后修剪
-        if levelSamples.count > 12 {
-            levelSamples.removeFirst(levelSamples.count - 12)
+        if levelSamples.count > 20 {
+            levelSamples.removeFirst(levelSamples.count - 20)
+        }
+
+        // 能量按当前功率连续积分：数字每秒都在走，而不是等下一次电量跳变
+        if power > 0 {
+            sessionWh += max(batteryPower, 0) * dt / 3600.0
         }
 
         updateFullEstimate()
@@ -164,7 +181,7 @@ final class ChargeEstimator: ObservableObject {
         }
 
         guard !energies.isEmpty else {
-            measuring = true
+            if power == 0 { measuring = true }
             return
         }
 
@@ -173,27 +190,22 @@ final class ChargeEstimator: ObservableObject {
         guard hours > 0 else { return }
 
         let batteryW = wh / hours
-        let chargerW = batteryW / efficiency
+        // 合理区间约束：有线最高 45W，最低 0.5W
+        let chargerW = min(max(batteryW / efficiency, 0.5), 45)
 
-        // 合理区间约束：有线最高 45W，无线最低 2W
-        let clamped = min(max(chargerW, 0.5), 45)
-
-        pendingIntervals.append(clamped)
-        if pendingIntervals.count > 5 { pendingIntervals.removeFirst() }
-
+        pendingIntervals.append(chargerW)
+        if pendingIntervals.count > 4 { pendingIntervals.removeFirst() }
         let avg = pendingIntervals.reduce(0, +) / Double(pendingIntervals.count)
 
         batteryPower = avg * efficiency
-        power = power == 0 ? avg : power * 0.55 + avg * 0.45
+        // 首次直接采用，之后轻平滑，避免电量跳 1% 时数字大幅弹跳
+        power = power == 0 ? avg : power * 0.4 + avg * 0.6
         measuring = false
 
         if power > peakPower { peakPower = power }
 
         samples.append((power * 10).rounded() / 10)
         if samples.count > 30 { samples.removeFirst() }
-
-        // 每 1% 累加一次充入能量
-        sessionWh += (energies.last ?? 0)
 
         var h = historyPower
         h.removeFirst()
@@ -202,10 +214,31 @@ final class ChargeEstimator: ObservableObject {
     }
 
     private func updateFullEstimate() {
-        guard power > 0.5, level > 0.02, level < 1 else {
+        guard isCharging else {
             fullEstimate = level >= 0.99 ? "已充满" : "--"
+            fullFromSystem = false
             return
         }
+
+        if level >= 0.995 {
+            fullEstimate = "已充满"
+            fullFromSystem = systemMinutesToFull != nil
+            return
+        }
+
+        // 优先用系统自己的充满预估（1 分钟级刷新，比推算准）
+        if let minutes = systemMinutesToFull, minutes > 0 {
+            fullEstimate = Fmt.duration(Double(minutes) * 60)
+            fullFromSystem = true
+            return
+        }
+
+        fullFromSystem = false
+        guard power > 0.5, level > 0.02 else {
+            fullEstimate = "--"
+            return
+        }
+
         let remainWh = (1.0 - level) * batteryWh
         let remainBatteryW = max(power * efficiency, 0.5)
         let hours = remainWh / remainBatteryW
@@ -230,10 +263,9 @@ final class ChargeEstimator: ObservableObject {
         levelSamples = [LevelSample(level: level, at: Date())]
         lastLevel = level
         startLevelForSession = level
+        lastTick = Date()
         measuring = true
     }
-
-    private var startLevelForSession: Double = 0
 
     private func endSession() {
         isCharging = false

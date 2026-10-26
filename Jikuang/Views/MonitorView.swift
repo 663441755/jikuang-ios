@@ -42,9 +42,12 @@ struct MonitorView: View {
                 Text(islandSupported ? "本机支持灵动岛" : "本机无灵动岛")
                     .font(.system(size: 12.5, weight: .semibold))
                     .foregroundColor(Theme.t1)
-                Text(islandSupported ? "可显示实时活动，需安装 Widget 扩展" : "将自动降级为通知栏与悬浮窗")
+                Text(islandSupported ? "\(DeviceInfo.friendlyName(metrics.hardwareModel)) · 可显示实时活动" : "将自动降级为通知栏与悬浮窗")
                     .font(.system(size: 9.5))
                     .foregroundColor(Theme.t3)
+                Text(DeviceInfo.islandDiagnostic(metrics.hardwareModel))
+                    .font(.system(size: 8.5, design: .monospaced))
+                    .foregroundColor(Theme.t3.opacity(0.75))
             }
             Spacer()
         }
@@ -136,7 +139,7 @@ struct MonitorView: View {
                         Image(systemName: "bolt.fill")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(Theme.amber)
-                        Text("\(Int(metrics.batteryLevel * 100))%")
+                        Text("\(metrics.batteryPercent)%")
                             .font(.system(size: 12, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                             .monospacedDigit()

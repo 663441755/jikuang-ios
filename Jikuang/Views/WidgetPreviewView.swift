@@ -164,7 +164,7 @@ struct WidgetPreviewView: View {
                 largeCell("温度", String(format: "%.1f", metrics.estimatedTemp), "℃", Theme.thermalColor(metrics.estimatedTemp))
                 largeCell("CPU", "\(Int(metrics.cpuUsage * 100))", "%", Theme.purple)
                 largeCell("下行", Fmt.speed(metrics.netDown).replacingOccurrences(of: "/s", with: ""), "/s", Theme.blue)
-                largeCell("电量", "\(Int(metrics.batteryLevel * 100))", "%", Theme.green)
+                largeCell("电量", "\(metrics.batteryPercent)", "%", Theme.green)
             }
 
             SegmentedBar(

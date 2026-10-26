@@ -237,20 +237,22 @@ final class DetectEngine: ObservableObject {
             return CheckResult(status: .pass, detail: detail)
 
         case .battery:
-            UIDevice.current.isBatteryMonitoringEnabled = true
-            let level = UIDevice.current.batteryLevel
-            guard level >= 0 else {
+            let snap = PowerSource.snapshot()
+            guard snap.level > 0 else {
                 return CheckResult(status: .warn, detail: "电量读数不可用")
             }
-            let percent = Int((level * 100).rounded())
+            let percent = PowerSource.percent(snap.level)
             let state: String
-            switch UIDevice.current.batteryState {
-            case .charging: state = "充电中"
-            case .full: state = "已充满"
-            case .unplugged: state = "放电中"
-            default: state = "未知"
+            if snap.isFull {
+                state = "已充满"
+            } else if snap.isCharging {
+                state = "充电中"
+            } else if snap.pluggedIn {
+                state = "已连电源"
+            } else {
+                state = "放电中"
             }
-            let status: CheckStatus = level < 0.15 ? .warn : .pass
+            let status: CheckStatus = snap.level < 0.15 && !snap.isCharging ? .warn : .pass
             return CheckResult(status: status, detail: "\(percent)% · \(state)")
 
         case .thermal:
