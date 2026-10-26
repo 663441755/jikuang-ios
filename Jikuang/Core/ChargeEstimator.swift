@@ -44,12 +44,15 @@ final class ChargeEstimator: ObservableObject {
 
     // MARK: - 心电图数据（充电页主视图）
 
-    /// 滚动波形缓冲：约 6.6 秒 @ 16Hz，负值向下、正值向上
+    /// 滚动波形缓冲：约 4.3 秒 @ 16Hz，负值向下、正值向上
+    /// （窗口取 4 秒级：一屏 4~6 个心跳，与真实监护仪观感一致）
     @Published var ecg: [Double] = []
     /// 由功率映射出的显示节律（视觉用，非真实心率）
     @Published var bpm: Int = 58
+    /// 预计充满的分钟数；nil = 无数据 / 已充满
+    @Published var fullMinutes: Int? = nil
     private var ecgPhase: Double = 0
-    private let ecgCapacity = 110
+    private let ecgCapacity = 72
     private let ecgStep: Double = 0.06
     private var ecgTimer: Timer?
 
@@ -128,7 +131,8 @@ final class ChargeEstimator: ObservableObject {
     private func ecgTick() {
         let ratio = min(max(power / 45.0, 0), 1)
         let amp = isCharging ? (0.30 + 0.70 * ratio) : 0.09
-        let targetBPM = isCharging ? 60.0 + 42.0 * ratio : 58.0
+        // 节律控制在 66~96：配合 4.3 秒窗口，一屏 4~6 个心跳
+        let targetBPM = isCharging ? 66.0 + 30.0 * ratio : 58.0
         bpm = Int(targetBPM.rounded())
 
         // 相位按当前节律推进；period 越短跳得越快
@@ -306,12 +310,14 @@ final class ChargeEstimator: ObservableObject {
         guard isCharging else {
             fullEstimate = level >= 0.99 ? "已充满" : "--"
             fullFromSystem = false
+            fullMinutes = nil
             return
         }
 
         if level >= 0.995 {
             fullEstimate = "已充满"
             fullFromSystem = systemMinutesToFull != nil
+            fullMinutes = 0
             return
         }
 
@@ -319,12 +325,14 @@ final class ChargeEstimator: ObservableObject {
         if let minutes = systemMinutesToFull, minutes > 0 {
             fullEstimate = Fmt.duration(Double(minutes) * 60)
             fullFromSystem = true
+            fullMinutes = minutes
             return
         }
 
         fullFromSystem = false
         guard power > 0.5, level > 0.02 else {
             fullEstimate = "--"
+            fullMinutes = nil
             return
         }
 
@@ -348,6 +356,7 @@ final class ChargeEstimator: ObservableObject {
         } else {
             fullEstimate = "\(max(minutes, 1)) 分钟"
         }
+        fullMinutes = max(minutes, 1)
     }
 
     // MARK: - 充电协议推断

@@ -126,15 +126,36 @@ struct ChargeView: View {
                         )
                     )
                 Spacer()
-                Text(charge.fullEstimate)
-                    .font(Px.nb(13))
-                    .foregroundColor(Theme.t1)
-                    .contentTransition(.numericText())
+                if let m = charge.fullMinutes {
+                    HStack(alignment: .lastTextBaseline, spacing: 3) {
+                        Text(m >= 60 ? "\(m / 60):\(String(format: "%02d", m % 60))" : "\(m)")
+                            .font(Px.nb(13))
+                            .foregroundColor(Theme.t1)
+                            .contentTransition(.numericText())
+                        Text(m >= 60 ? "HR" : "MIN")
+                            .font(Px.n(7.5))
+                            .foregroundColor(Theme.t3)
+                    }
+                } else {
+                    Text(charge.fullEstimate)
+                        .font(Px.cn(11))
+                        .foregroundColor(Theme.t2)
+                }
             }
             .padding(.top, 2)
         }
         .padding(14)
         .card()
+    }
+
+    /// 时长显示：仪表式 MM:SS（超过 1 小时 H:MM:SS），避免中文与像素数字混排
+    private func clock(_ t: TimeInterval) -> String {
+        let s = Int(t)
+        let h = s / 3600
+        let m = (s % 3600) / 60
+        let sec = s % 60
+        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
+        return String(format: "%02d:%02d", m, sec)
     }
 
     private func eParam(label: String, value: String, unit: String, tint: Color) -> some View {
@@ -160,7 +181,7 @@ struct ChargeView: View {
     private var statsCard: some View {
         VStack(spacing: 10) {
             HStack(spacing: 0) {
-                StatTile(label: "本次时长", value: Fmt.duration(charge.elapsed), tint: Theme.t1)
+                StatTile(label: "本次时长", value: clock(charge.elapsed), tint: Theme.t1)
                 StatTile(label: "峰值功率", value: String(format: "%.1f", charge.peakPower), unit: "W", tint: Theme.amber)
                 StatTile(label: "充入能量", value: String(format: "%.1f", charge.sessionWh), unit: "Wh", tint: Theme.ecgLine)
             }
