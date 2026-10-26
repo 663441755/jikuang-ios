@@ -34,7 +34,7 @@ struct OverviewView: View {
     private var deviceCard: some View {
         HStack(spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                Rectangle()
                     .fill(
                         LinearGradient(
                             colors: [Theme.amber, Theme.amberDeep],
@@ -64,7 +64,7 @@ struct OverviewView: View {
                     .font(.system(size: 8.5))
                     .foregroundColor(Theme.t3)
                 Text(Fmt.duration(metrics.uptime))
-                    .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                    .font(Px.n(10.5))
                     .foregroundColor(Theme.t2)
                     .monospacedDigit()
             }
@@ -112,7 +112,7 @@ struct OverviewView: View {
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundColor(tint)
                 Text(value)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .font(Px.nb(15))
                     .foregroundColor(Theme.t1)
                     .monospacedDigit()
                 Text(unit)
@@ -137,7 +137,7 @@ struct OverviewView: View {
                         .foregroundColor(Theme.t2)
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
                         Text("\(Int(metrics.cpuUsage * 100))")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .font(Px.nb(32))
                             .foregroundColor(Theme.t1)
                             .monospacedDigit()
                         Text("%")
@@ -152,7 +152,7 @@ struct OverviewView: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Theme.purple.opacity(0.12))
-                    .clipShape(Capsule())
+                    .clipShape(Rectangle())
             }
 
             Waveform(values: metrics.cpuHistory, color: Theme.purple)
@@ -163,11 +163,11 @@ struct OverviewView: View {
                     ForEach(Array(metrics.perCore.prefix(8).indices), id: \.self) { index in
                         let value = metrics.perCore[index]
                         VStack(spacing: 3) {
-                            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            Rectangle()
                                 .fill(Theme.purple.opacity(0.22))
                                 .frame(height: 26)
                                 .overlay(alignment: .bottom) {
-                                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                                    Rectangle()
                                         .fill(Theme.purple)
                                         .frame(height: max(2, 26 * CGFloat(value)))
                                 }
@@ -197,7 +197,7 @@ struct OverviewView: View {
 
             HStack(alignment: .bottom, spacing: 1) {
                 Text(String(format: "%.1f", metrics.estimatedTemp))
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                    .font(Px.nb(30))
                     .foregroundColor(tempTint)
                     .monospacedDigit()
                 Text("℃")
@@ -240,7 +240,7 @@ struct OverviewView: View {
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(Theme.blue)
                 Text(Fmt.speed(metrics.netDown))
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .font(Px.nb(15))
                     .foregroundColor(Theme.t1)
                     .monospacedDigit()
                     .lineLimit(1)
@@ -252,7 +252,7 @@ struct OverviewView: View {
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(Theme.green)
                 Text(Fmt.speed(metrics.netUp))
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(Px.n(13))
                     .foregroundColor(Theme.t2)
                     .monospacedDigit()
                     .lineLimit(1)
@@ -279,7 +279,7 @@ struct OverviewView: View {
                     .foregroundColor(Theme.t2)
                 Spacer()
                 Text("\(Fmt.bytes(metrics.memUsed)) / \(Fmt.bytes(metrics.memTotal))")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .font(Px.n(10))
                     .foregroundColor(Theme.t2)
                     .monospacedDigit()
             }
@@ -310,7 +310,7 @@ struct OverviewView: View {
                     .foregroundColor(Theme.t2)
                 Spacer()
                 Text("\(Fmt.bytes(metrics.diskUsed)) / \(Fmt.bytes(metrics.diskTotal))")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .font(Px.n(10))
                     .foregroundColor(Theme.t2)
                     .monospacedDigit()
             }
@@ -358,7 +358,7 @@ struct OverviewView: View {
                 .foregroundColor(Theme.t2)
             Spacer()
             Text(value)
-                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .font(Px.n(11))
                 .foregroundColor(Theme.t1)
                 .monospacedDigit()
         }

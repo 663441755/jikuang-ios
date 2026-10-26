@@ -92,7 +92,7 @@ struct DetectView: View {
 
                 VStack(spacing: 0) {
                     Text("\(engine.score)")
-                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .font(Px.nb(42))
                         .foregroundColor(Theme.t1)
                         .monospacedDigit()
                         .contentTransition(.numericText())
@@ -136,7 +136,7 @@ struct DetectView: View {
     private func summaryCell(value: String, label: String, tint: Color) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .font(Px.nb(17))
                 .foregroundColor(tint)
                 .monospacedDigit()
             Text(label)
@@ -175,7 +175,7 @@ struct DetectView: View {
                     endPoint: .trailing
                 )
             )
-            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .clipShape(Rectangle())
             .shadow(color: Theme.amber.opacity(0.35), radius: 14, y: 4)
         }
         .buttonStyle(.plain)
@@ -207,7 +207,7 @@ struct DetectView: View {
     private func itemRow(_ item: CheckItem) -> some View {
         HStack(spacing: 10) {
             ZStack {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                Rectangle()
                     .fill(statusColor(item.status).opacity(0.12))
                     .frame(width: 30, height: 30)
                 Image(systemName: item.symbol)
@@ -262,7 +262,7 @@ struct DetectView: View {
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
         .background(statusColor(status).opacity(0.12))
-        .clipShape(Capsule())
+        .clipShape(Rectangle())
     }
 
     // MARK: - 免责

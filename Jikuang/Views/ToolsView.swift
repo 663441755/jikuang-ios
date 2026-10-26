@@ -73,8 +73,8 @@ struct ToolsView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 9)
                         .background(.ultraThinMaterial)
-                        .clipShape(Capsule())
-                        .overlay(Capsule().stroke(Theme.lineStrong, lineWidth: 1))
+                        .clipShape(Rectangle())
+                        .overlay(Rectangle().stroke(Theme.lineStrong, lineWidth: 1))
                         .padding(.bottom, 100)
                         .transition(.opacity)
                 }
@@ -213,7 +213,7 @@ struct ToolCell: View {
     var body: some View {
         VStack(spacing: 6) {
             ZStack {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                Rectangle()
                     .fill(item.tint.opacity(0.11))
                     .frame(width: 36, height: 36)
                 Image(systemName: item.symbol)
@@ -230,9 +230,9 @@ struct ToolCell: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 11)
         .background(Theme.surf)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(Rectangle())
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            Rectangle()
                 .stroke(Theme.line, lineWidth: 1)
         )
         .overlay(alignment: .topTrailing) {
@@ -244,7 +244,7 @@ struct ToolCell: View {
                     .padding(.horizontal, 3.5)
                     .padding(.vertical, 1.5)
                     .background(Theme.amber.opacity(0.14))
-                    .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                    .clipShape(Rectangle())
                     .padding(5)
             }
         }

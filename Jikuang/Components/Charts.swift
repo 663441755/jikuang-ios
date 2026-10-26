@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - CPU 波形图
+// MARK: - CPU 波形（像素台阶版）
 
 struct Waveform: View {
     var values: [Double]
@@ -16,64 +16,207 @@ struct Waveform: View {
 
             ZStack {
                 if showGrid {
-                    Path { p in
+                    Canvas { ctx, size in
+                        var p = Path()
                         for i in 1...3 {
-                            let y = h * CGFloat(i) / 4
+                            let y = size.height * CGFloat(i) / 4
                             p.move(to: CGPoint(x: 0, y: y))
-                            p.addLine(to: CGPoint(x: w, y: y))
+                            p.addLine(to: CGPoint(x: size.width, y: y))
                         }
+                        for i in 1...6 {
+                            let x = size.width * CGFloat(i) / 7
+                            p.move(to: CGPoint(x: x, y: 0))
+                            p.addLine(to: CGPoint(x: x, y: size.height))
+                        }
+                        ctx.stroke(p, with: .color(Theme.amber.opacity(0.10)), lineWidth: 0.5)
                     }
-                    .stroke(Color.white.opacity(0.045), lineWidth: 0.7)
+                    .drawingGroup()
                 }
 
                 // 面积
                 Path { p in
                     p.move(to: CGPoint(x: 0, y: h))
+                    var lastY = h
                     for (i, v) in values.enumerated() {
                         let x = CGFloat(i) * stepX
-                        let y = h - CGFloat(min(max(v, 0), 1)) * h
-                        p.addLine(to: CGPoint(x: x, y: y))
+                        // 量化到 1/20 网格，做出数字示波器的台阶感
+                        let q = (min(max(v, 0), 1) * 20).rounded() / 20
+                        let y = h - CGFloat(q) * h
+                        if i == 0 {
+                            p.addLine(to: CGPoint(x: x, y: y))
+                        } else {
+                            p.addLine(to: CGPoint(x: x, y: lastY))
+                            p.addLine(to: CGPoint(x: x, y: y))
+                        }
+                        lastY = y
                     }
                     p.addLine(to: CGPoint(x: CGFloat(values.count - 1) * stepX, y: h))
                     p.closeSubpath()
                 }
                 .fill(
                     LinearGradient(
-                        colors: [color.opacity(0.34), color.opacity(0.02)],
+                        colors: [color.opacity(0.30), color.opacity(0.015)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                 )
 
-                // 曲线
+                // 曲线（直角折线，不用圆角，保持像素硬边）
                 Path { p in
+                    var lastY = h
                     for (i, v) in values.enumerated() {
                         let x = CGFloat(i) * stepX
-                        let y = h - CGFloat(min(max(v, 0), 1)) * h
+                        let q = (min(max(v, 0), 1) * 20).rounded() / 20
+                        let y = h - CGFloat(q) * h
                         if i == 0 {
                             p.move(to: CGPoint(x: x, y: y))
                         } else {
+                            p.addLine(to: CGPoint(x: x, y: lastY))
                             p.addLine(to: CGPoint(x: x, y: y))
                         }
+                        lastY = y
                     }
                 }
-                .stroke(color, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                .stroke(color, style: StrokeStyle(lineWidth: 1.8, lineCap: .butt, lineJoin: .miter))
+                .shadow(color: color.opacity(0.8), radius: 4)
 
-                // 末端点
+                // 末端方块指示点
                 if let last = values.last {
-                    let y = h - CGFloat(min(max(last, 0), 1)) * h
-                    Circle()
+                    let q = (min(max(last, 0), 1) * 20).rounded() / 20
+                    let y = h - CGFloat(q) * h
+                    Rectangle()
                         .fill(color)
-                        .frame(width: 5, height: 5)
+                        .frame(width: 4, height: 4)
                         .position(x: CGFloat(values.count - 1) * stepX, y: y)
-                        .shadow(color: color.opacity(0.9), radius: 5)
+                        .shadow(color: color, radius: 6)
                 }
             }
         }
     }
 }
 
-// MARK: - 环形进度
+// MARK: - 心电图（ECG）
+
+/// 心电图纸：小格 7pt，大格 35pt，青绿网格
+struct ECGPaper: View {
+    var body: some View {
+        Canvas { ctx, size in
+            var small = Path()
+            let s: CGFloat = 7
+            var x: CGFloat = 0
+            while x <= size.width {
+                small.move(to: CGPoint(x: x, y: 0))
+                small.addLine(to: CGPoint(x: x, y: size.height))
+                x += s
+            }
+            var y: CGFloat = 0
+            while y <= size.height {
+                small.move(to: CGPoint(x: 0, y: y))
+                small.addLine(to: CGPoint(x: size.width, y: y))
+                y += s
+            }
+            ctx.stroke(small, with: .color(Theme.ecgGrid), lineWidth: 0.5)
+
+            var big = Path()
+            let b: CGFloat = 35
+            var bx: CGFloat = 0
+            while bx <= size.width {
+                big.move(to: CGPoint(x: bx, y: 0))
+                big.addLine(to: CGPoint(x: bx, y: size.height))
+                bx += b
+            }
+            var by: CGFloat = 0
+            while by <= size.height {
+                big.move(to: CGPoint(x: 0, y: by))
+                big.addLine(to: CGPoint(x: size.width, y: by))
+                by += b
+            }
+            ctx.stroke(big, with: .color(Theme.amber.opacity(0.15)), lineWidth: 0.6)
+        }
+        .drawingGroup()
+    }
+}
+
+/// 心电图波形：从右往左滚动，末端带扫描头
+struct ECGMonitor: View {
+    var samples: [Double]
+    var tint: Color = Theme.ecgLine
+    var active: Bool = true
+    /// 纵向增益，1.0 表示一个 R 波峰约占 60% 高度
+    var gain: CGFloat = 1.0
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let baseY = h * 0.66
+            let amp = h * 0.52 * gain
+
+            ZStack {
+                ECGPaper()
+                    .opacity(active ? 1 : 0.45)
+
+                // 基线
+                Rectangle()
+                    .fill(Theme.amber.opacity(0.18))
+                    .frame(height: 0.6)
+                    .position(x: w / 2, y: baseY)
+
+                wavePath(w: w, baseY: baseY, amp: amp)
+                    .stroke(tint.opacity(0.22), style: StrokeStyle(lineWidth: 6, lineCap: .butt, lineJoin: .miter))
+                    .blur(radius: 3)
+
+                wavePath(w: w, baseY: baseY, amp: amp)
+                    .stroke(tint, style: StrokeStyle(lineWidth: 1.8, lineCap: .butt, lineJoin: .miter))
+
+                // 扫描头
+                if let last = samples.last, samples.count > 1 {
+                    let x = w - 1
+                    let y = baseY - CGFloat(last) * amp
+                    Rectangle()
+                        .fill(tint)
+                        .frame(width: 4, height: 4)
+                        .position(x: x, y: min(max(y, 2), h - 2))
+                        .shadow(color: tint, radius: 7)
+
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                colors: [tint.opacity(0.30), .clear],
+                                startPoint: .bottom,
+                                endPoint: .top
+                            )
+                        )
+                        .frame(width: 1, height: h)
+                        .position(x: x, y: h / 2)
+                }
+            }
+            .clipped()
+        }
+    }
+
+    private func wavePath(w: CGFloat, baseY: CGFloat, amp: CGFloat) -> Path {
+        Path { p in
+            guard samples.count > 1 else { return }
+            let stepX = w / CGFloat(samples.count - 1)
+            var lastY = baseY
+            for (i, v) in samples.enumerated() {
+                let x = CGFloat(i) * stepX
+                let y = min(max(baseY - CGFloat(v) * amp, 2), baseY + amp * 0.35)
+                if i == 0 {
+                    p.move(to: CGPoint(x: x, y: y))
+                } else {
+                    // 水平 → 垂直，两级台阶，模拟数字采样
+                    p.addLine(to: CGPoint(x: x, y: lastY))
+                    p.addLine(to: CGPoint(x: x, y: y))
+                }
+                lastY = y
+            }
+        }
+    }
+}
+
+// MARK: - 分段环形仪表（像素版）
 
 struct RingGauge: View {
     var progress: Double        // 0...1
@@ -81,23 +224,28 @@ struct RingGauge: View {
     var colors: [Color] = [Theme.amber, Theme.amberDeep]
     var trackOpacity: Double = 0.08
 
-    var body: some View {
-        ZStack {
-            Circle()
-                .stroke(Color.white.opacity(trackOpacity), lineWidth: lineWidth)
+    private let segments = 28
 
-            Circle()
-                .trim(from: 0, to: CGFloat(min(max(progress, 0), 1)))
-                .stroke(
-                    AngularGradient(
-                        colors: colors + [colors.first ?? Theme.amber],
-                        center: .center
-                    ),
-                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .animation(.easeOut(duration: 0.6), value: progress)
-                .shadow(color: (colors.first ?? Theme.amber).opacity(0.55), radius: 8)
+    var body: some View {
+        GeometryReader { geo in
+            let side = min(geo.size.width, geo.size.height)
+            let radius = side / 2 - lineWidth / 2
+
+            ZStack {
+                ForEach(0..<segments, id: \.self) { i in
+                    Rectangle()
+                        .fill(
+                            Double(i) / Double(segments) < min(max(progress, 0), 1)
+                                ? (colors.first ?? Theme.amber)
+                                : Color.white.opacity(trackOpacity)
+                        )
+                        .frame(width: max(lineWidth * 0.5, 2), height: lineWidth)
+                        .offset(y: -radius)
+                        .rotationEffect(.degrees(Double(i) / Double(segments) * 360))
+                }
+            }
+            .frame(width: side, height: side)
+            .position(x: geo.size.width / 2, y: geo.size.height / 2)
         }
     }
 }
@@ -124,7 +272,7 @@ struct HalfGauge: View {
                         clockwise: false
                     )
                 }
-                .stroke(Color.white.opacity(0.08), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .stroke(Color.white.opacity(0.08), style: StrokeStyle(lineWidth: lineWidth, lineCap: .butt))
 
                 Path { p in
                     p.addArc(
@@ -135,15 +283,8 @@ struct HalfGauge: View {
                         clockwise: false
                     )
                 }
-                .stroke(
-                    LinearGradient(
-                        colors: [tint.opacity(0.65), tint],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
-                )
-                .shadow(color: tint.opacity(0.6), radius: 7)
+                .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .butt))
+                .shadow(color: tint.opacity(0.7), radius: 6)
             }
         }
     }
@@ -158,20 +299,21 @@ struct StatTile: View {
     var tint: Color = Theme.t1
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(size: 9.5, weight: .medium))
+                .font(Px.cn(9, .medium))
                 .foregroundColor(Theme.t3)
                 .lineLimit(1)
 
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(value)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(Px.nb(15))
                     .foregroundColor(tint)
-                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                 if let unit {
                     Text(unit)
-                        .font(.system(size: 8.5, weight: .medium))
+                        .font(Px.n(8))
                         .foregroundColor(Theme.t3)
                 }
             }
@@ -180,29 +322,28 @@ struct StatTile: View {
     }
 }
 
-// MARK: - 分段条
+// MARK: - 分段进度条（方块版）
 
 struct SegmentedBar: View {
     var value: Double
     var tint: Color
     var height: CGFloat = 5
+    var blockWidth: CGFloat = 4
 
     var body: some View {
         GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(Color.white.opacity(0.07))
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [tint.opacity(0.7), tint],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(width: geo.size.width * CGFloat(min(max(value, 0), 1)))
-                    .animation(.easeOut(duration: 0.4), value: value)
+            let gap: CGFloat = 2
+            let count = max(Int((geo.size.width + gap) / (blockWidth + gap)), 4)
+            let filled = Int((min(max(value, 0), 1) * Double(count)).rounded())
+
+            HStack(spacing: gap) {
+                ForEach(0..<count, id: \.self) { i in
+                    Rectangle()
+                        .fill(i < filled ? tint : Color.white.opacity(0.07))
+                        .frame(height: height)
+                }
             }
+            .frame(height: height)
         }
         .frame(height: height)
     }
@@ -215,19 +356,29 @@ struct PageHeader: View {
     var subtitle: String?
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            // 标题前的荧光块
+            Rectangle()
+                .fill(Theme.amber)
+                .frame(width: 5, height: 17)
+                .offset(y: -2)
+                .shadow(color: Theme.amber.opacity(0.9), radius: 6)
+
             Text(title)
-                .font(.system(size: 26, weight: .bold))
+                .font(Px.cn(22, .heavy))
+                .tracking(0.6)
                 .foregroundColor(Theme.t1)
+
             Spacer()
+
             if let subtitle {
-                Text(subtitle)
-                    .font(.system(size: 10.5))
+                Text(subtitle.uppercased())
+                    .font(Px.n(9))
                     .foregroundColor(Theme.t3)
             }
         }
-        .padding(.top, 6)
-        .padding(.bottom, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
     }
 }
 
@@ -239,20 +390,24 @@ struct GroupLabel: View {
 
     var body: some View {
         HStack(spacing: 7) {
-            Text(text.uppercased())
-                .font(.system(size: 9.5, weight: .semibold))
-                .tracking(1.1)
-                .foregroundColor(Theme.t3)
+            Text("//")
+                .font(Px.n(9))
+                .foregroundColor(Theme.amber.opacity(0.55))
+
+            Text(text)
+                .font(Px.cn(10.5, .bold))
+                .tracking(1.0)
+                .foregroundColor(Theme.t2)
+
             if let badge {
                 Text(badge)
-                    .font(.system(size: 7, weight: .bold))
-                    .tracking(0.4)
-                    .foregroundColor(Theme.amber)
+                    .font(Px.n(7.5))
+                    .foregroundColor(Theme.bg)
                     .padding(.horizontal, 4)
-                    .padding(.vertical, 1.5)
-                    .background(Theme.amber.opacity(0.14))
-                    .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                    .padding(.vertical, 2)
+                    .background(Theme.amber)
             }
+
             Rectangle()
                 .fill(Theme.line)
                 .frame(height: 1)
